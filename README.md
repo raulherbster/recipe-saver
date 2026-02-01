@@ -195,8 +195,35 @@ The schema.org parser supports 40+ recipe websites including:
 
 ```bash
 cd backend
+
+# Install dev dependencies (if not already installed)
+pip install -e ".[dev]"
+
+# Run all tests
+pytest
+
+# Run with verbose output
 pytest -v
+
+# Run a specific test file
+pytest tests/test_youtube.py
+
+# Run a specific test class or function
+pytest tests/test_recipe_sites.py::TestParseSchemaRecipe
+pytest tests/test_api.py::test_search_recipes
+
+# Run with coverage report
+pytest --cov=app --cov-report=term-missing
 ```
+
+### Test Structure
+
+| File | Description |
+|------|-------------|
+| `test_youtube.py` | YouTube URL parsing, video ID extraction |
+| `test_recipe_sites.py` | Schema.org parsing, ingredient parsing, URL detection |
+| `test_llm_extractor.py` | LLM response parsing, confidence calculation |
+| `test_api.py` | API integration tests (CRUD, search, pagination) |
 
 ## Roadmap
 
