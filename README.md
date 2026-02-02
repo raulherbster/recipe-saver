@@ -89,11 +89,11 @@ recipe-saver/
 cd backend
 
 # Create virtual environment
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 
 # Install dependencies
-pip install -e ".[dev]"
+pip3 install -e ".[dev]"
 
 # Configure environment
 cp .env.example .env
@@ -197,7 +197,7 @@ The schema.org parser supports 40+ recipe websites including:
 cd backend
 
 # Install dev dependencies (if not already installed)
-pip install -e ".[dev]"
+pip3 install -e ".[dev]"
 
 # Run all tests
 pytest
