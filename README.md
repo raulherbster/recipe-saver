@@ -93,7 +93,7 @@ python3 -m venv .venv
 source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 
 # Install dependencies
-pip3 install -e ".[dev]"
+pip3 install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
@@ -196,8 +196,8 @@ The schema.org parser supports 40+ recipe websites including:
 ```bash
 cd backend
 
-# Install dev dependencies (if not already installed)
-pip3 install -e ".[dev]"
+# Install dependencies (if not already installed)
+pip3 install -r requirements.txt
 
 # Run all tests
 pytest
