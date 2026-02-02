@@ -1,0 +1,50 @@
+name: recipe_saver
+description: Save recipes from YouTube and Instagram with smart extraction.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # Networking
+  dio: ^5.4.0
+
+  # Local database
+  sqflite: ^2.3.2
+  path: ^1.8.3
+
+  # UI components
+  cupertino_icons: ^1.0.6
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
+  # Share intent receiving
+  receive_sharing_intent: ^1.8.0
+
+  # URL handling
+  url_launcher: ^6.2.4
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  riverpod_generator: ^2.3.9
+  build_runner: ^2.4.8
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
