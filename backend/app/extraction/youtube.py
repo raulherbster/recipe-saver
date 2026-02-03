@@ -119,27 +119,24 @@ def fetch_pinned_comment(video_id: str) -> Optional[str]:
 def fetch_transcript(video_id: str, max_length: int = 15000) -> Optional[str]:
     """Fetch video transcript/captions."""
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        ytt_api = YouTubeTranscriptApi()
 
-        # Prefer manual captions over auto-generated
-        transcript = None
+        # Try to get English transcript first
         try:
-            transcript = transcript_list.find_manually_created_transcript(['en', 'en-US', 'en-GB'])
-        except NoTranscriptFound:
+            transcript = ytt_api.fetch(video_id, languages=['en', 'en-US', 'en-GB'])
+        except Exception:
+            # Fall back to any available transcript
             try:
-                transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
-            except NoTranscriptFound:
-                # Try any available language
-                for t in transcript_list:
-                    transcript = t
-                    break
+                transcript = ytt_api.fetch(video_id)
+            except Exception:
+                return None
 
-        if transcript is None:
+        if not transcript:
             return None
 
-        # Combine transcript segments
-        segments = transcript.fetch()
-        full_text = " ".join(segment["text"] for segment in segments)
+        # Combine transcript segments - new API returns FetchedTranscript object
+        # which has snippets with .text attribute
+        full_text = " ".join(snippet.text for snippet in transcript.snippets)
 
         # Truncate if too long
         if len(full_text) > max_length:

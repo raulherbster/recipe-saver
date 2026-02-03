@@ -67,6 +67,21 @@ RECIPE_PATH_PATTERNS = [
     r'/rezept[e]?/',
 ]
 
+# Known URL shorteners associated with recipe sites
+KNOWN_RECIPE_SHORTENERS = {
+    "nyti.ms": "nytimes.com",  # NYT Cooking
+    "bit.ly": None,  # Generic - needs expansion
+    "tinyurl.com": None,
+    "t.co": None,
+    "ow.ly": None,
+    "buff.ly": None,
+    "goo.gl": None,
+    "is.gd": None,
+    "rb.gy": None,
+    "shorturl.at": None,
+    "tiny.cc": None,
+}
+
 
 @dataclass
 class ParsedIngredient:
@@ -97,6 +112,18 @@ class SchemaRecipe:
     site_name: Optional[str] = None
 
 
+def is_shortened_url(url: str) -> bool:
+    """Check if a URL is from a known URL shortener."""
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return domain in KNOWN_RECIPE_SHORTENERS
+    except Exception:
+        return False
+
+
 def is_recipe_url(url: str) -> bool:
     """Check if a URL is likely a recipe page."""
     try:
@@ -123,9 +150,61 @@ def is_recipe_url(url: str) -> bool:
         return False
 
 
+def is_recipe_url_or_shortener(url: str) -> bool:
+    """Check if a URL is a recipe page OR a shortened URL that might be."""
+    return is_recipe_url(url) or is_shortened_url(url)
+
+
 def filter_recipe_urls(urls: list[str]) -> list[str]:
     """Filter a list of URLs to only include likely recipe pages."""
     return [url for url in urls if is_recipe_url(url)]
+
+
+def filter_potential_recipe_urls(urls: list[str]) -> list[str]:
+    """Filter URLs to include recipe pages AND shortened URLs that might be recipes."""
+    return [url for url in urls if is_recipe_url_or_shortener(url)]
+
+
+async def expand_shortened_url(url: str) -> Optional[str]:
+    """Expand a shortened URL by following redirects."""
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=10.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; RecipeSaver/1.0)"
+            }
+        ) as client:
+            response = await client.head(url)
+            final_url = str(response.url)
+            # Return the expanded URL if it's different from the original
+            if final_url != url:
+                return final_url
+            return url
+    except Exception as e:
+        print(f"Error expanding URL {url}: {e}")
+        return None
+
+
+async def expand_and_filter_recipe_urls(urls: list[str]) -> list[str]:
+    """
+    Expand shortened URLs and filter to only recipe pages.
+
+    Returns expanded URLs that point to known recipe sites.
+    """
+    result = []
+
+    for url in urls:
+        if is_recipe_url(url):
+            # Already a known recipe URL
+            result.append(url)
+        elif is_shortened_url(url):
+            # Try to expand and check if it's a recipe URL
+            expanded = await expand_shortened_url(url)
+            if expanded and is_recipe_url(expanded):
+                result.append(expanded)
+
+    return result
 
 
 def parse_iso_duration(duration: Optional[str]) -> Optional[int]:

@@ -7,6 +7,7 @@ from enum import Enum
 from app.extraction.youtube import extract_youtube_content, YouTubeContent
 from app.extraction.recipe_sites import (
     filter_recipe_urls,
+    expand_and_filter_recipe_urls,
     fetch_and_parse_recipe_url,
     SchemaRecipe,
     ParsedIngredient,
@@ -102,7 +103,8 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
     hashtags = extract_hashtags(yt_content.metadata.description)
 
     # Step 2: Look for recipe URLs in description/comments
-    recipe_urls = filter_recipe_urls(yt_content.extracted_urls)
+    # This also expands shortened URLs (bit.ly, nyti.ms, etc.) to find recipe links
+    recipe_urls = await expand_and_filter_recipe_urls(yt_content.extracted_urls)
 
     # Step 3: Try to parse recipe from found URLs (schema.org first)
     recipe_from_url: Optional[SchemaRecipe] = None
