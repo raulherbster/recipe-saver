@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/recipe.dart';
 import '../providers/providers.dart';
+import '../services/api_service.dart';
 import '../widgets/recipe_card.dart';
 import 'recipe_detail_screen.dart';
 

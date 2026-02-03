@@ -26,9 +26,6 @@ dependencies:
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
 
-  # Share intent receiving
-  receive_sharing_intent: ^1.8.0
-
   # URL handling
   url_launcher: ^6.2.4
 
