@@ -69,6 +69,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Future<bool> _confirmDelete(String recipeId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Recipe'),
+        content: const Text('Are you sure you want to delete this recipe?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _deleteRecipe(String recipeId) async {
+    try {
+      await ref.read(apiServiceProvider).deleteRecipe(recipeId);
+      ref.read(recipesProvider.notifier).removeRecipe(recipeId);
+    } catch (e) {
+      debugPrint('Failed to delete recipe $recipeId: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete recipe. Please try again.'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final recipesState = ref.watch(recipesProvider);
@@ -122,9 +162,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final recipe = state.recipes[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: RecipeCard(
-            recipe: recipe,
-            onTap: () => _openRecipeDetail(recipe.id),
+          child: Dismissible(
+            key: ValueKey(recipe.id),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (_) => _confirmDelete(recipe.id),
+            onDismissed: (_) => _deleteRecipe(recipe.id),
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.delete, color: Colors.white),
+                ],
+              ),
+            ),
+            child: RecipeCard(
+              recipe: recipe,
+              onTap: () => _openRecipeDetail(recipe.id),
+            ),
           ),
         );
       },
