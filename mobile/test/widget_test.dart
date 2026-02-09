@@ -1,30 +1,104 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:recipe_saver/main.dart';
+import 'package:recipe_saver/providers/providers.dart';
+import 'package:recipe_saver/screens/home_screen.dart';
+import 'package:recipe_saver/services/api_service.dart';
+import 'package:recipe_saver/models/recipe.dart';
+
+/// Mock API service that returns empty/mock data
+class MockApiService extends ApiService {
+  MockApiService() : super(baseUrl: 'http://localhost:8000');
+
+  @override
+  Future<PaginatedRecipes> getRecipes({int page = 1, int pageSize = 20}) async {
+    return PaginatedRecipes(
+      recipes: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      totalPages: 0,
+    );
+  }
+
+  @override
+  Future<void> deleteRecipe(String id) async {
+    // No-op for testing
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Home screen shows correct title', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiServiceProvider.overrideWithValue(MockApiService()),
+        ],
+        child: const MaterialApp(
+          home: HomeScreen(),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Wait for async operations to complete
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(find.text('Recipe Saver'), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('Home screen shows Add Recipe FAB', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiServiceProvider.overrideWithValue(MockApiService()),
+        ],
+        child: const MaterialApp(
+          home: HomeScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Recipe'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
+  });
+
+  testWidgets('Home screen shows search icon', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiServiceProvider.overrideWithValue(MockApiService()),
+        ],
+        child: const MaterialApp(
+          home: HomeScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.search), findsOneWidget);
+  });
+
+  testWidgets('Home screen shows empty state when no recipes',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiServiceProvider.overrideWithValue(MockApiService()),
+        ],
+        child: const MaterialApp(
+          home: HomeScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('No recipes yet'), findsOneWidget);
+    expect(find.text('Tap the button below to add your first recipe'),
+        findsOneWidget);
   });
 }
