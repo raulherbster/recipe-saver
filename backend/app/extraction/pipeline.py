@@ -16,6 +16,7 @@ from app.extraction.llm_extractor import (
     extract_recipe_with_llm,
     CATEGORY_TAXONOMY,
 )
+from app.extraction.url_utils import preprocess_share_url
 from app.config import get_settings
 
 
@@ -301,7 +302,19 @@ async def extract_recipe(
     Main extraction entry point.
 
     Determines the source platform and routes to the appropriate extractor.
+
+    The URL is preprocessed to handle:
+    - Mobile share intent text with embedded URLs
+    - Tracking parameters (utm_*, igsh, si, etc.)
+    - Mobile-specific URL formats (m.youtube.com, youtu.be, etc.)
     """
+    # Preprocess the URL to handle share intent formats
+    url = preprocess_share_url(url)
+
+    # Also preprocess manual_recipe_url if provided
+    if manual_recipe_url:
+        manual_recipe_url = preprocess_share_url(manual_recipe_url)
+
     platform = detect_platform(url)
 
     if platform == SourcePlatform.YOUTUBE:

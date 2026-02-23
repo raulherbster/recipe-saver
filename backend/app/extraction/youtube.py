@@ -33,10 +33,30 @@ class YouTubeContent:
 
 
 def extract_video_id(url: str) -> Optional[str]:
-    """Extract YouTube video ID from various URL formats."""
+    """Extract YouTube video ID from various URL formats.
+
+    Supports:
+    - youtube.com/watch?v=VIDEO_ID (desktop)
+    - m.youtube.com/watch?v=VIDEO_ID (mobile)
+    - youtu.be/VIDEO_ID (short links)
+    - youtube.com/embed/VIDEO_ID (embeds)
+    - youtube.com/shorts/VIDEO_ID (shorts)
+    - youtube.com/v/VIDEO_ID (old format)
+    - youtube.com/live/VIDEO_ID (live streams)
+    """
     patterns = [
-        r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})',
-        r'youtube\.com/shorts/([a-zA-Z0-9_-]{11})',
+        # Standard watch URLs (desktop and mobile)
+        r'(?:(?:www\.|m\.)?youtube\.com/watch\?v=)([a-zA-Z0-9_-]{11})',
+        # Short URLs
+        r'youtu\.be/([a-zA-Z0-9_-]{11})',
+        # Embed URLs
+        r'(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]{11})',
+        # Shorts
+        r'(?:www\.)?youtube\.com/shorts/([a-zA-Z0-9_-]{11})',
+        # Old format
+        r'(?:www\.)?youtube\.com/v/([a-zA-Z0-9_-]{11})',
+        # Live streams
+        r'(?:www\.)?youtube\.com/live/([a-zA-Z0-9_-]{11})',
     ]
     for pattern in patterns:
         match = re.search(pattern, url)

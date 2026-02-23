@@ -18,6 +18,11 @@ from app.extraction.llm_extractor import (
     extract_recipe_with_llm,
     CATEGORY_TAXONOMY,
 )
+from app.extraction.url_utils import (
+    preprocess_share_url,
+    clean_url,
+    extract_url_from_share_text,
+)
 
 __all__ = [
     "extract_recipe",
@@ -33,4 +38,7 @@ __all__ = [
     "filter_recipe_urls",
     "extract_recipe_with_llm",
     "CATEGORY_TAXONOMY",
+    "preprocess_share_url",
+    "clean_url",
+    "extract_url_from_share_text",
 ]
