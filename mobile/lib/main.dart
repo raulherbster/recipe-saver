@@ -5,6 +5,7 @@ import 'screens/add_recipe_screen.dart';
 import 'services/share_intent_service.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
     const ProviderScope(
       child: RecipeSaverApp(),
@@ -24,20 +25,52 @@ class RecipeSaverApp extends StatefulWidget {
 
 class _RecipeSaverAppState extends State<RecipeSaverApp> {
   final _shareIntentService = ShareIntentService();
+  String? _pendingUrl;
 
   @override
   void initState() {
     super.initState();
     _shareIntentService.init(
       onUrlReceived: (url) {
-        // Navigate to add recipe screen with the shared URL
-        navigatorKey.currentState?.push(
+        _navigateToAddRecipe(url);
+      },
+    );
+  }
+
+  /// Navigate to add recipe screen with the shared URL
+  /// Handles both immediate navigation and delayed navigation (if navigator not ready)
+  void _navigateToAddRecipe(String url) {
+    final navigator = navigatorKey.currentState;
+    if (navigator != null) {
+      // Navigator is ready, navigate immediately
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => AddRecipeScreen(initialUrl: url),
+        ),
+      );
+    } else {
+      // Navigator not ready (cold start), save URL and navigate after frame
+      _pendingUrl = url;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _processPendingUrl();
+      });
+    }
+  }
+
+  /// Process any pending URL after the navigator is ready
+  void _processPendingUrl() {
+    if (_pendingUrl != null) {
+      final url = _pendingUrl!;
+      _pendingUrl = null;
+      final navigator = navigatorKey.currentState;
+      if (navigator != null) {
+        navigator.push(
           MaterialPageRoute(
             builder: (_) => AddRecipeScreen(initialUrl: url),
           ),
         );
-      },
-    );
+      }
+    }
   }
 
   @override
