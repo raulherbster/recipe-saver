@@ -6,7 +6,14 @@ from app.extraction.pipeline import (
     ExtractionMethod,
     SourcePlatform,
 )
-from app.extraction.youtube import extract_youtube_content, YouTubeContent
+from app.extraction.youtube import (
+    extract_youtube_content,
+    YouTubeContent,
+    YouTubeComment,
+    extract_recipe_links_from_patterns,
+    fetch_top_comments,
+    get_author_comments,
+)
 from app.extraction.recipe_sites import (
     fetch_and_parse_recipe_url,
     SchemaRecipe,
@@ -23,6 +30,12 @@ from app.extraction.url_utils import (
     clean_url,
     extract_url_from_share_text,
 )
+from app.extraction.recipe_search import (
+    search_recipe_sites,
+    search_recipe_by_title_author,
+    calculate_title_similarity,
+    SearchResult,
+)
 
 __all__ = [
     "extract_recipe",
@@ -31,6 +44,10 @@ __all__ = [
     "SourcePlatform",
     "extract_youtube_content",
     "YouTubeContent",
+    "YouTubeComment",
+    "extract_recipe_links_from_patterns",
+    "fetch_top_comments",
+    "get_author_comments",
     "fetch_and_parse_recipe_url",
     "SchemaRecipe",
     "ParsedIngredient",
@@ -41,4 +58,8 @@ __all__ = [
     "preprocess_share_url",
     "clean_url",
     "extract_url_from_share_text",
+    "search_recipe_sites",
+    "search_recipe_by_title_author",
+    "calculate_title_similarity",
+    "SearchResult",
 ]

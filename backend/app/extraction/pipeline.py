@@ -4,7 +4,12 @@ from typing import Optional
 from dataclasses import dataclass, field
 from enum import Enum
 
-from app.extraction.youtube import extract_youtube_content, YouTubeContent
+from app.extraction.youtube import (
+    extract_youtube_content,
+    YouTubeContent,
+    extract_urls_from_text,
+    extract_recipe_links_from_patterns,
+)
 from app.extraction.recipe_sites import (
     filter_recipe_urls,
     expand_and_filter_recipe_urls,
@@ -17,6 +22,7 @@ from app.extraction.llm_extractor import (
     CATEGORY_TAXONOMY,
 )
 from app.extraction.url_utils import preprocess_share_url
+from app.extraction.recipe_search import search_recipe_sites
 from app.config import get_settings
 
 
@@ -84,11 +90,49 @@ def extract_hashtags(text: Optional[str]) -> list[str]:
     return [f"#{tag}" for tag in hashtags]
 
 
+async def try_schema_extraction(
+    recipe_url: str,
+    yt_content: YouTubeContent,
+    hashtags: list[str],
+    url: str,
+    confidence: float,
+    all_found_urls: list[str],
+) -> Optional[ExtractionResult]:
+    """Helper to try schema.org extraction from a URL."""
+    parsed = await fetch_and_parse_recipe_url(recipe_url)
+    if parsed and parsed.ingredients:
+        return ExtractionResult(
+            success=True,
+            method=ExtractionMethod.SCHEMA_ORG,
+            recipe=parsed,
+            source_platform=SourcePlatform.YOUTUBE,
+            video_url=url,
+            recipe_page_url=recipe_url,
+            recipe_site_name=parsed.site_name,
+            thumbnail_url=yt_content.metadata.thumbnail_url,
+            original_caption=yt_content.metadata.description,
+            author_name=parsed.author or yt_content.metadata.channel_name,
+            tags=hashtags,
+            confidence=confidence,
+            found_recipe_urls=all_found_urls,
+        )
+    return None
+
+
 async def extract_from_youtube(url: str) -> ExtractionResult:
-    """Extract recipe from a YouTube video URL."""
+    """
+    Extract recipe from a YouTube video URL.
+
+    Uses multiple heuristics in order of confidence:
+    1. URLs from description (confidence: 0.95)
+    2. Pattern-matched URLs ("recipe here:", etc.) (confidence: 0.90)
+    3. URLs from author's comments (confidence: 0.85)
+    4. Web search by title + author (confidence: 0.70-0.80)
+    5. LLM extraction from transcript (confidence: 0.30-0.60)
+    """
     settings = get_settings()
 
-    # Step 1: Fetch YouTube content
+    # Step 1: Fetch YouTube content (includes comments now)
     yt_content = await extract_youtube_content(url, settings.max_transcript_length)
 
     if not yt_content:
@@ -103,40 +147,75 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
     # Extract hashtags from description
     hashtags = extract_hashtags(yt_content.metadata.description)
 
-    # Step 2: Look for recipe URLs in description/comments
-    # This also expands shortened URLs (bit.ly, nyti.ms, etc.) to find recipe links
+    # Collect all URLs found for reporting
+    all_found_urls = list(set(
+        yt_content.extracted_urls +
+        (yt_content.pattern_matched_urls or [])
+    ))
+
+    # Step 2: Try URLs from description/pinned comment (existing behavior)
     recipe_urls = await expand_and_filter_recipe_urls(yt_content.extracted_urls)
 
-    # Step 3: Try to parse recipe from found URLs (schema.org first)
-    recipe_from_url: Optional[SchemaRecipe] = None
-    used_recipe_url: Optional[str] = None
-
     for recipe_url in recipe_urls:
-        parsed = await fetch_and_parse_recipe_url(recipe_url)
-        if parsed and parsed.ingredients:  # Must have at least ingredients
-            recipe_from_url = parsed
-            used_recipe_url = recipe_url
-            break
+        result = await try_schema_extraction(
+            recipe_url, yt_content, hashtags, url,
+            confidence=0.95, all_found_urls=all_found_urls
+        )
+        if result:
+            return result
 
-    if recipe_from_url:
-        # Success! We got the recipe from a linked page
-        return ExtractionResult(
-            success=True,
-            method=ExtractionMethod.SCHEMA_ORG,
-            recipe=recipe_from_url,
-            source_platform=SourcePlatform.YOUTUBE,
-            video_url=url,
-            recipe_page_url=used_recipe_url,
-            recipe_site_name=recipe_from_url.site_name,
-            thumbnail_url=yt_content.metadata.thumbnail_url,
-            original_caption=yt_content.metadata.description,
-            author_name=recipe_from_url.author or yt_content.metadata.channel_name,
-            tags=hashtags,
-            confidence=0.95,  # High confidence for schema.org
-            found_recipe_urls=recipe_urls,
+    # Step 3: Try pattern-matched URLs ("get the recipe here:", etc.)
+    if yt_content.pattern_matched_urls:
+        pattern_recipe_urls = await expand_and_filter_recipe_urls(
+            yt_content.pattern_matched_urls
+        )
+        for recipe_url in pattern_recipe_urls:
+            result = await try_schema_extraction(
+                recipe_url, yt_content, hashtags, url,
+                confidence=0.90, all_found_urls=all_found_urls
+            )
+            if result:
+                return result
+
+    # Step 4: Try URLs from author's comments
+    if yt_content.author_comments:
+        for comment in yt_content.author_comments:
+            comment_urls = extract_urls_from_text(comment)
+            # Also check for pattern matches in author comments
+            comment_urls.extend(extract_recipe_links_from_patterns(comment))
+
+            author_recipe_urls = await expand_and_filter_recipe_urls(comment_urls)
+            for recipe_url in author_recipe_urls:
+                result = await try_schema_extraction(
+                    recipe_url, yt_content, hashtags, url,
+                    confidence=0.85, all_found_urls=all_found_urls
+                )
+                if result:
+                    return result
+
+    # Step 5: Try web search by title + author (for Shorts with minimal description)
+    try:
+        search_results = await search_recipe_sites(
+            title=yt_content.metadata.title,
+            author=yt_content.metadata.channel_name,
+            min_similarity=0.4,  # Require reasonable title match
+            max_results=5,
         )
 
-    # Step 4: Fall back to LLM extraction from transcript
+        for search_result in search_results:
+            # Higher similarity = higher confidence
+            confidence = 0.80 if search_result.similarity_score > 0.7 else 0.70
+            result = await try_schema_extraction(
+                search_result.url, yt_content, hashtags, url,
+                confidence=confidence, all_found_urls=all_found_urls
+            )
+            if result:
+                return result
+    except Exception as e:
+        # Web search is optional - don't fail if it errors
+        print(f"Web search failed: {e}")
+
+    # Step 6: Fall back to LLM extraction from transcript
     if yt_content.transcript or yt_content.metadata.description:
         llm_result = await extract_recipe_with_llm(
             title=yt_content.metadata.title,
@@ -162,10 +241,14 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
                 tags=all_tags,
                 confidence=llm_result.confidence,
                 raw_data=llm_result.raw_response,
-                found_recipe_urls=recipe_urls,
+                found_recipe_urls=all_found_urls,
             )
 
-    # Step 5: Extraction failed
+    # Step 7: Extraction failed
+    error_msg = "Could not extract recipe - no recipe link found and transcript parsing failed"
+    if yt_content.has_link_in_bio:
+        error_msg += " (Note: creator mentioned recipe is in their bio/profile)"
+
     return ExtractionResult(
         success=False,
         method=ExtractionMethod.FAILED,
@@ -174,8 +257,8 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
         thumbnail_url=yt_content.metadata.thumbnail_url,
         original_caption=yt_content.metadata.description,
         author_name=yt_content.metadata.channel_name,
-        error="Could not extract recipe - no recipe link found and transcript parsing failed",
-        found_recipe_urls=recipe_urls,
+        error=error_msg,
+        found_recipe_urls=all_found_urls,
         tags=hashtags,
     )
 
