@@ -4,6 +4,11 @@ import pytest
 from app.extraction.youtube import (
     extract_video_id,
     extract_urls_from_text,
+    extract_recipe_links_from_patterns,
+    check_for_link_in_bio,
+    YouTubeComment,
+    get_author_comments,
+    get_pinned_comment,
 )
 from app.extraction.url_utils import (
     preprocess_share_url,
@@ -237,3 +242,146 @@ class TestUrlPreprocessing:
         """Test preprocessing with empty string."""
         assert preprocess_share_url("") == ""
         assert preprocess_share_url(None) is None
+
+
+class TestRecipeLinkPatterns:
+    """Tests for recipe link pattern extraction."""
+
+    def test_recipe_here_colon(self):
+        """Test 'recipe here:' pattern."""
+        text = "Get the recipe here: https://example.com/pasta-recipe"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://example.com/pasta-recipe" in urls
+
+    def test_full_recipe_colon(self):
+        """Test 'full recipe:' pattern."""
+        text = "Full recipe: https://cooking.nytimes.com/recipe/123"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://cooking.nytimes.com/recipe/123" in urls
+
+    def test_get_the_recipe(self):
+        """Test 'get the recipe' pattern."""
+        text = "Get the recipe → https://seriouseats.com/pizza"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://seriouseats.com/pizza" in urls
+
+    def test_recipe_link(self):
+        """Test 'recipe link:' pattern."""
+        text = "Recipe link: https://allrecipes.com/recipe/12345"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://allrecipes.com/recipe/12345" in urls
+
+    def test_find_recipe_at(self):
+        """Test 'find the recipe at' pattern."""
+        text = "Find the recipe at https://myblog.com/carbonara"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://myblog.com/carbonara" in urls
+
+    def test_written_recipe(self):
+        """Test 'written recipe:' pattern."""
+        text = "Written recipe: https://example.com/chicken"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://example.com/chicken" in urls
+
+    def test_case_insensitive(self):
+        """Test case insensitivity."""
+        text = "FULL RECIPE: https://example.com/cake"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://example.com/cake" in urls
+
+    def test_multiple_patterns(self):
+        """Test multiple patterns in same text."""
+        text = """
+        Get the recipe here: https://site1.com/recipe1
+        Full recipe: https://site2.com/recipe2
+        """
+        urls = extract_recipe_links_from_patterns(text)
+        assert len(urls) == 2
+
+    def test_no_pattern_match(self):
+        """Test text without recipe link patterns."""
+        text = "Check out my video https://youtube.com/watch?v=123"
+        urls = extract_recipe_links_from_patterns(text)
+        assert len(urls) == 0
+
+    def test_empty_text(self):
+        """Test empty text."""
+        assert extract_recipe_links_from_patterns("") == []
+        assert extract_recipe_links_from_patterns(None) == []
+
+
+class TestLinkInBio:
+    """Tests for 'link in bio' detection."""
+
+    def test_recipe_in_bio(self):
+        """Test 'recipe in bio' pattern."""
+        text = "Recipe in bio! 🔗"
+        assert check_for_link_in_bio(text) is True
+
+    def test_link_in_bio(self):
+        """Test 'link in bio' pattern."""
+        text = "Full recipe, link in bio"
+        assert check_for_link_in_bio(text) is True
+
+    def test_check_bio_for_recipe(self):
+        """Test 'check bio for recipe' pattern."""
+        text = "Check my bio for the full recipe"
+        assert check_for_link_in_bio(text) is True
+
+    def test_recipe_in_my_bio(self):
+        """Test 'recipe in my bio' pattern."""
+        text = "Recipe is in my bio!"
+        assert check_for_link_in_bio(text) is True
+
+    def test_no_bio_mention(self):
+        """Test text without bio mention."""
+        text = "Get the recipe here: https://example.com"
+        assert check_for_link_in_bio(text) is False
+
+    def test_empty_text(self):
+        """Test empty text."""
+        assert check_for_link_in_bio("") is False
+        assert check_for_link_in_bio(None) is False
+
+
+class TestCommentHelpers:
+    """Tests for comment helper functions."""
+
+    def test_get_author_comments(self):
+        """Test filtering to author comments only."""
+        comments = [
+            YouTubeComment("Great video!", "user1", "User 1", False, False),
+            YouTubeComment("Recipe link: https://...", "channel1", "Chef", True, True),
+            YouTubeComment("Thanks!", "user2", "User 2", False, False),
+            YouTubeComment("More info here", "channel1", "Chef", True, False),
+        ]
+        author_comments = get_author_comments(comments)
+        assert len(author_comments) == 2
+        assert "Recipe link: https://..." in author_comments
+        assert "More info here" in author_comments
+
+    def test_get_author_comments_none(self):
+        """Test when no author comments exist."""
+        comments = [
+            YouTubeComment("Great!", "user1", "User 1", False, False),
+            YouTubeComment("Love it!", "user2", "User 2", False, False),
+        ]
+        author_comments = get_author_comments(comments)
+        assert len(author_comments) == 0
+
+    def test_get_pinned_comment(self):
+        """Test getting pinned comment."""
+        comments = [
+            YouTubeComment("Pinned: Recipe here!", "channel1", "Chef", True, True),
+            YouTubeComment("Great video!", "user1", "User 1", False, False),
+        ]
+        pinned = get_pinned_comment(comments)
+        assert pinned == "Pinned: Recipe here!"
+
+    def test_get_pinned_comment_none(self):
+        """Test when no pinned comment exists."""
+        comments = [
+            YouTubeComment("Great!", "user1", "User 1", False, False),
+        ]
+        pinned = get_pinned_comment(comments)
+        assert pinned is None
