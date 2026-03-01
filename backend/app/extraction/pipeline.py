@@ -180,11 +180,20 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
     # Step 4: Try URLs from author's comments
     if yt_content.author_comments:
         for comment in yt_content.author_comments:
-            comment_urls = extract_urls_from_text(comment)
-            # Also check for pattern matches in author comments
-            comment_urls.extend(extract_recipe_links_from_patterns(comment))
+            # Pattern-matched URLs (e.g. "find the full recipe here: <url>") skip
+            # the domain allowlist — the author's explicit label is enough signal.
+            pattern_urls = extract_recipe_links_from_patterns(comment)
+            for recipe_url in pattern_urls:
+                result = await try_schema_extraction(
+                    recipe_url, yt_content, hashtags, url,
+                    confidence=0.90, all_found_urls=all_found_urls
+                )
+                if result:
+                    return result
 
-            author_recipe_urls = await expand_and_filter_recipe_urls(comment_urls)
+            # Any remaining URLs in the comment still go through domain filtering.
+            other_urls = extract_urls_from_text(comment)
+            author_recipe_urls = await expand_and_filter_recipe_urls(other_urls)
             for recipe_url in author_recipe_urls:
                 result = await try_schema_extraction(
                     recipe_url, yt_content, hashtags, url,

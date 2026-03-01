@@ -250,24 +250,27 @@ def extract_urls_from_text(text: str) -> list[str]:
     return list(set(cleaned_urls))  # Deduplicate
 
 
-# Patterns for extracting recipe URLs from common phrases
+# Patterns for extracting recipe URLs from common phrases.
+# SEP matches common separators (colon, dash, arrow, !, .) and is optional
+# when the phrase already contains a directional word like "here" or "at".
+_SEP = r'[:\-→➡!.]?\s*'
+_SEP_REQUIRED = r'[:\-→➡]\s*'
+
 RECIPE_LINK_PATTERNS = [
-    # "get the recipe here: URL" / "recipe here: URL"
-    r'(?:get\s+)?(?:the\s+)?(?:full\s+)?recipe\s*(?:here|link)?\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
-    # "check out the recipe: URL"
-    r'(?:check\s+out\s+)?(?:the\s+)?recipe\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
+    # "find the full recipe here! URL" / "get the recipe here: URL"
+    r'(?:(?:find|get)\s+)?(?:the\s+)?(?:full\s+)?recipe\s+here' + _SEP + r'(https?://[^\s<>"\']+)',
+    # "recipe link: URL" / "recipe link → URL"
+    r'recipe\s+link\s*' + _SEP_REQUIRED + r'(https?://[^\s<>"\']+)',
+    # "full recipe: URL" / "full recipe → URL"
+    r'full\s+recipe\s*' + _SEP_REQUIRED + r'(https?://[^\s<>"\']+)',
+    # "written recipe: URL"
+    r'written\s+recipe\s*' + _SEP_REQUIRED + r'(https?://[^\s<>"\']+)',
+    # "link to recipe: URL"
+    r'link\s+to\s+(?:the\s+)?recipe\s*' + _SEP_REQUIRED + r'(https?://[^\s<>"\']+)',
     # "find the recipe at URL" / "recipe at URL"
     r'(?:find\s+)?(?:the\s+)?recipe\s+(?:at|on)\s+(https?://[^\s<>"\']+)',
-    # "recipe link: URL"
-    r'recipe\s+link\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
-    # "full recipe: URL"
-    r'full\s+recipe\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
-    # "written recipe: URL"
-    r'written\s+recipe\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
-    # "link to recipe: URL"
-    r'link\s+to\s+(?:the\s+)?recipe\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
-    # "ingredients & recipe: URL"
-    r'(?:ingredients\s*(?:&|and)\s*)?recipe\s*[:\-→➡]\s*(https?://[^\s<>"\']+)',
+    # "check out the recipe: URL"
+    r'(?:check\s+out\s+)?(?:the\s+)?recipe\s*' + _SEP_REQUIRED + r'(https?://[^\s<>"\']+)',
 ]
 
 
