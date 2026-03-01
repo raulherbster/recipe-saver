@@ -7,7 +7,6 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 class ShareIntentService {
   Function(String url)? _onUrlReceived;
   StreamSubscription<List<SharedMediaFile>>? _mediaSubscription;
-  StreamSubscription<String?>? _textSubscription;
 
   /// URL patterns to match YouTube and Instagram URLs
   static final _youtubePatterns = [
@@ -47,12 +46,8 @@ class ShareIntentService {
         return;
       }
 
-      // Check for shared text (including URLs)
-      final sharedText = await ReceiveSharingIntent.instance.getInitialText();
-      if (sharedText != null && sharedText.isNotEmpty) {
-        _handleSharedText(sharedText);
-        ReceiveSharingIntent.instance.reset();
-      }
+      // No separate text API in v1.8.x — text items arrive via getInitialMedia()
+      // with SharedMediaType.text and are handled in _handleMediaFiles above.
     } catch (e) {
       // Log error but don't crash - share intent handling is optional
       print('ShareIntentService: Error getting initial shared data: $e');
@@ -72,38 +67,20 @@ class ShareIntentService {
       },
     );
 
-    // Listen for incoming text (URLs shared as text)
-    _textSubscription = ReceiveSharingIntent.instance.getTextStream().listen(
-      (String? text) {
-        if (text != null && text.isNotEmpty) {
-          _handleSharedText(text);
-          ReceiveSharingIntent.instance.reset();
-        }
-      },
-      onError: (err) {
-        print('ShareIntentService: Text stream error: $err');
-      },
-    );
+    // Text items (SharedMediaType.text) are delivered via getMediaStream() in v1.8.x.
   }
 
-  /// Handle shared media files
+  /// Handle shared media files (including text items from SharedMediaType.text)
   void _handleMediaFiles(List<SharedMediaFile> files) {
     for (final file in files) {
-      // Some apps share URLs as media files - check the path
-      final path = file.path;
-      final url = _extractUrl(path);
+      // Text shares (URLs shared as plain text) arrive with type == text;
+      // the path field holds the actual text content.
+      final content = file.path;
+      final url = _extractUrl(content);
       if (url != null) {
         _onUrlReceived?.call(url);
         return;
       }
-    }
-  }
-
-  /// Handle shared text and extract URL
-  void _handleSharedText(String text) {
-    final url = _extractUrl(text);
-    if (url != null) {
-      _onUrlReceived?.call(url);
     }
   }
 
@@ -147,7 +124,7 @@ class ShareIntentService {
   /// Clean up the URL (remove trailing garbage, tracking parameters for cleaner URLs)
   String _cleanUrl(String url) {
     // Remove common trailing characters that might be attached
-    var cleaned = url.replaceAll(RegExp(r'[)\]}>\'",;]+$'), '');
+    var cleaned = url.replaceAll(RegExp(r"""[)\]}>'",;]+$"""), '');
 
     // For YouTube URLs, we might want to keep the URL as-is since the backend
     // handles different formats. For Instagram, same applies.
@@ -176,9 +153,7 @@ class ShareIntentService {
   /// Dispose of the subscriptions
   void dispose() {
     _mediaSubscription?.cancel();
-    _textSubscription?.cancel();
     _mediaSubscription = null;
-    _textSubscription = null;
     _onUrlReceived = null;
   }
 }

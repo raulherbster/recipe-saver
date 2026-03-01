@@ -17,15 +17,19 @@ tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
 
-// Force consistent JVM target for all subprojects
-subprojects {
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-            jvmTarget = "17"
+// Force consistent JVM target for all subprojects (including third-party plugins).
+// gradle.projectsEvaluated runs after every project has been configured, so it
+// safely overrides whatever sourceCompatibility the plugin set on its own.
+gradle.projectsEvaluated {
+    allprojects {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
         }
-    }
-    tasks.withType(JavaCompile).configureEach {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        tasks.withType(JavaCompile) {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
     }
 }
