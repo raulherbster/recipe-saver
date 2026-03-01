@@ -29,6 +29,9 @@ dependencies:
   # URL handling
   url_launcher: ^6.2.4
 
+  # Share intent handling
+  receive_sharing_intent: ^1.8.0
+
   # Utilities
   intl: ^0.19.0
   uuid: ^4.3.3
