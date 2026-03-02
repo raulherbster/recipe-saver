@@ -1,5 +1,6 @@
 """Tests for recipe site parsing module."""
 
+import re
 import pytest
 from app.extraction.recipe_sites import (
     is_recipe_url,
@@ -8,6 +9,7 @@ from app.extraction.recipe_sites import (
     parse_ingredient_text,
     parse_schema_recipe,
     find_schema_recipe,
+    parse_recipe_from_description,
 )
 
 
@@ -220,3 +222,97 @@ class TestFindSchemaRecipe:
         """
         schema = find_schema_recipe(html)
         assert schema is None
+
+
+class TestParseRecipeFromDescription:
+    """Tests for parsing recipes embedded directly in video descriptions."""
+
+    _PUMPKIN_PIE_DESC = """THE BEST PUMPKIN PIE RECIPE | DESSERT PERSON
+Claire's recipe amps it up with brown butter and caramelized honey.
+
+#ClaireSaffitz #PumpkinPie
+
+Special Equipment:
+9-inch pie plate
+
+Ingredients:
+5 tablespoons unsalted butter (2.5 oz / 71g)
+1/3 cup honey (4 oz / 113g)
+3/4 cup heavy cream (6 oz / 170g), at room temperature
+4 large eggs, at room temperature
+1/4 cup packed dark brown sugar (1.8 oz / 50g)
+1 can unsweetened pumpkin puree
+2 teaspoons ground cinnamon
+1 teaspoon vanilla extract
+
+Video Breakdown:
+0:00 Start
+1:25 Why Claire's Pumpkin Pie is Special
+
+Thanks for watching!
+https://www.dessertperson.com/
+"""
+
+    def test_parses_ingredients_from_description(self):
+        """Basic case: description has Ingredients: section."""
+        result = parse_recipe_from_description(self._PUMPKIN_PIE_DESC, "Pumpkin Pie")
+        assert result is not None
+        assert len(result.ingredients) >= 5
+        names = [i.name for i in result.ingredients]
+        assert any("butter" in n.lower() for n in names)
+        assert any("honey" in n.lower() for n in names)
+        assert any("cream" in n.lower() for n in names)
+
+    def test_title_set_correctly(self):
+        """Title comes from the provided title argument, not the description."""
+        result = parse_recipe_from_description(self._PUMPKIN_PIE_DESC, "Pumpkin Pie")
+        assert result.title == "Pumpkin Pie"
+
+    def test_timestamps_not_parsed_as_ingredients(self):
+        """Timestamp lines (0:00, 1:25, ...) must not appear as ingredients."""
+        result = parse_recipe_from_description(self._PUMPKIN_PIE_DESC, "Pumpkin Pie")
+        assert result is not None
+        raw_texts = [i.raw_text for i in result.ingredients]
+        assert not any(re.match(r'^\d+:\d+', t) for t in raw_texts)
+
+    def test_parses_instructions_when_present(self):
+        """Instructions section is extracted when present."""
+        desc = """Some video
+
+Ingredients:
+2 cups flour
+1 cup sugar
+
+Instructions:
+1. Mix flour and sugar together.
+2. Bake at 350F for 30 minutes.
+"""
+        result = parse_recipe_from_description(desc, "Simple Cake")
+        assert result is not None
+        assert len(result.instructions) == 2
+        assert "Mix flour" in result.instructions[0]
+
+    def test_returns_none_without_ingredients_section(self):
+        """Description with no Ingredients: header returns None."""
+        desc = "Just a regular video description with no recipe."
+        assert parse_recipe_from_description(desc, "Video") is None
+
+    def test_returns_none_for_empty_description(self):
+        """Empty or None description returns None."""
+        assert parse_recipe_from_description("", "Video") is None
+        assert parse_recipe_from_description(None, "Video") is None
+
+    def test_case_insensitive_header(self):
+        """Ingredients header is matched case-insensitively."""
+        desc = "INGREDIENTS:\n1 cup flour\n2 eggs\n"
+        result = parse_recipe_from_description(desc, "Test")
+        assert result is not None
+        assert len(result.ingredients) == 2
+
+    def test_bullet_point_ingredients(self):
+        """Ingredients with bullet point prefixes are parsed cleanly."""
+        desc = "Ingredients:\n- 1 cup flour\n• 2 eggs\n* 1 tsp salt\n"
+        result = parse_recipe_from_description(desc, "Test")
+        assert result is not None
+        raw_texts = [i.raw_text for i in result.ingredients]
+        assert all(not t.startswith(('-', '•', '*')) for t in raw_texts)

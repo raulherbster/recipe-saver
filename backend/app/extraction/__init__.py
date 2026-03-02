@@ -16,6 +16,7 @@ from app.extraction.youtube import (
 )
 from app.extraction.recipe_sites import (
     fetch_and_parse_recipe_url,
+    parse_recipe_from_description,
     SchemaRecipe,
     ParsedIngredient,
     is_recipe_url,
@@ -49,6 +50,7 @@ __all__ = [
     "fetch_top_comments",
     "get_author_comments",
     "fetch_and_parse_recipe_url",
+    "parse_recipe_from_description",
     "SchemaRecipe",
     "ParsedIngredient",
     "is_recipe_url",
