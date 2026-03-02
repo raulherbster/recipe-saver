@@ -1,10 +1,27 @@
 """YouTube video metadata and transcript extraction."""
 
+import os
 import re
 import json
+import shutil
 import subprocess
+import sys
 from typing import Optional
 from dataclasses import dataclass
+
+
+def _yt_dlp_cmd() -> str:
+    """Return the yt-dlp executable path.
+
+    Prefers the binary installed alongside the current Python interpreter
+    (works in venvs and CI runners where the scripts dir may not be on PATH),
+    then falls back to whatever is on PATH.
+    """
+    alongside = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
+    if os.path.isfile(alongside):
+        return alongside
+    on_path = shutil.which("yt-dlp")
+    return on_path or "yt-dlp"
 
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
@@ -83,7 +100,7 @@ def fetch_youtube_metadata(video_id: str) -> Optional[YouTubeMetadata]:
     try:
         result = subprocess.run(
             [
-                "yt-dlp",
+                _yt_dlp_cmd(),
                 "--dump-json",
                 "--no-download",
                 "--no-playlist",
@@ -134,7 +151,7 @@ def fetch_top_comments(video_id: str, limit: int = 20) -> tuple[list[YouTubeComm
     try:
         result = subprocess.run(
             [
-                "yt-dlp",
+                _yt_dlp_cmd(),
                 "--dump-json",
                 "--no-download",
                 "--no-playlist",
