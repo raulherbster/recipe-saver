@@ -88,18 +88,10 @@ class RecipeDetailScreen extends ConsumerWidget {
           expandedHeight: 250,
           pinned: true,
           flexibleSpace: FlexibleSpaceBar(
-            title: Text(
-              recipe.title,
-              style: const TextStyle(
-                shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
-              ),
-            ),
             background: recipe.thumbnailUrl != null
                 ? CachedNetworkImage(
                     imageUrl: recipe.thumbnailUrl!,
                     fit: BoxFit.cover,
-                    color: Colors.black26,
-                    colorBlendMode: BlendMode.darken,
                   )
                 : Container(
                     color: Theme.of(context).colorScheme.primaryContainer,
@@ -140,6 +132,15 @@ class RecipeDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Title below the image
+                Text(
+                  recipe.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 16),
+
                 // Quick info
                 _buildQuickInfo(context, recipe),
                 const SizedBox(height: 16),

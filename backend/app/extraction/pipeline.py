@@ -14,6 +14,7 @@ from app.extraction.recipe_sites import (
     filter_recipe_urls,
     expand_and_filter_recipe_urls,
     fetch_and_parse_recipe_url,
+    parse_recipe_from_description,
     SchemaRecipe,
     ParsedIngredient,
 )
@@ -28,6 +29,7 @@ from app.config import get_settings
 
 class ExtractionMethod(str, Enum):
     SCHEMA_ORG = "schema_org"
+    DESCRIPTION_PARSED = "description_parsed"
     LLM_TRANSCRIPT = "llm_transcript"
     MANUAL = "manual"
     FAILED = "failed"
@@ -165,17 +167,15 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
             return result
 
     # Step 3: Try pattern-matched URLs ("get the recipe here:", etc.)
-    if yt_content.pattern_matched_urls:
-        pattern_recipe_urls = await expand_and_filter_recipe_urls(
-            yt_content.pattern_matched_urls
+    # Bypass domain filtering — the recipe phrase is already sufficient signal,
+    # regardless of whether the domain is in the known-sites allowlist.
+    for recipe_url in yt_content.pattern_matched_urls:
+        result = await try_schema_extraction(
+            recipe_url, yt_content, hashtags, url,
+            confidence=0.90, all_found_urls=all_found_urls
         )
-        for recipe_url in pattern_recipe_urls:
-            result = await try_schema_extraction(
-                recipe_url, yt_content, hashtags, url,
-                confidence=0.90, all_found_urls=all_found_urls
-            )
-            if result:
-                return result
+        if result:
+            return result
 
     # Step 4: Try URLs from author's comments
     if yt_content.author_comments:
@@ -224,7 +224,28 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
         # Web search is optional - don't fail if it errors
         print(f"Web search failed: {e}")
 
-    # Step 6: Fall back to LLM extraction from transcript
+    # Step 6: Parse recipe directly from description when ingredients are embedded
+    if yt_content.metadata.description:
+        description_recipe = parse_recipe_from_description(
+            yt_content.metadata.description,
+            yt_content.metadata.title,
+        )
+        if description_recipe and description_recipe.ingredients:
+            return ExtractionResult(
+                success=True,
+                method=ExtractionMethod.DESCRIPTION_PARSED,
+                recipe=description_recipe,
+                source_platform=SourcePlatform.YOUTUBE,
+                video_url=url,
+                thumbnail_url=yt_content.metadata.thumbnail_url,
+                original_caption=yt_content.metadata.description,
+                author_name=yt_content.metadata.channel_name,
+                tags=hashtags,
+                confidence=0.75,
+                found_recipe_urls=all_found_urls,
+            )
+
+    # Step 8: Fall back to LLM extraction from transcript
     if yt_content.transcript or yt_content.metadata.description:
         llm_result = await extract_recipe_with_llm(
             title=yt_content.metadata.title,
@@ -253,7 +274,7 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
                 found_recipe_urls=all_found_urls,
             )
 
-    # Step 7: Extraction failed
+    # Step 9: Extraction failed
     error_msg = "Could not extract recipe - no recipe link found and transcript parsing failed"
     if yt_content.has_link_in_bio:
         error_msg += " (Note: creator mentioned recipe is in their bio/profile)"

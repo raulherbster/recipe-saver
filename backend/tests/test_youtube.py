@@ -298,6 +298,24 @@ class TestRecipeLinkPatterns:
         urls = extract_recipe_links_from_patterns(text)
         assert len(urls) == 2
 
+    def test_grab_the_recipe_here(self):
+        """Test 'grab the recipe here:' - unknown domain must still be captured."""
+        text = "Grab the recipe here: https://justinesnacks.com/carrot-white-bean-soup/"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://justinesnacks.com/carrot-white-bean-soup/" in urls
+
+    def test_find_the_full_recipe_here_exclamation(self):
+        """Test 'find the full recipe here!' with exclamation separator."""
+        text = "And you can find the full recipe here! https://justinesnacks.com/carrot-bread/"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://justinesnacks.com/carrot-bread/" in urls
+
+    def test_unknown_domain_captured(self):
+        """Pattern match works for any domain, not just known recipe sites."""
+        text = "Recipe here: https://some-personal-food-blog.com/my-pasta"
+        urls = extract_recipe_links_from_patterns(text)
+        assert "https://some-personal-food-blog.com/my-pasta" in urls
+
     def test_no_pattern_match(self):
         """Test text without recipe link patterns."""
         text = "Check out my video https://youtube.com/watch?v=123"
@@ -308,6 +326,35 @@ class TestRecipeLinkPatterns:
         """Test empty text."""
         assert extract_recipe_links_from_patterns("") == []
         assert extract_recipe_links_from_patterns(None) == []
+
+
+class TestPatternUrlBypassesDomainFilter:
+    """
+    Regression tests ensuring that URLs matched by a recipe phrase are
+    NOT filtered by the domain allowlist in the extraction pipeline.
+
+    Previously these failed because expand_and_filter_recipe_urls was
+    applied to pattern-matched URLs, dropping unknown domains like
+    justinesnacks.com even when the description/comment explicitly said
+    'Grab the recipe here: <url>'.
+    """
+
+    def test_unknown_domain_not_filtered_by_is_recipe_url(self):
+        """justinesnacks.com is not a known domain — is_recipe_url must return False."""
+        from app.extraction.recipe_sites import is_recipe_url
+        assert not is_recipe_url("https://justinesnacks.com/carrot-white-bean-soup/")
+
+    def test_pattern_captures_url_regardless_of_domain(self):
+        """Pattern extraction works even when domain is not in the allowlist."""
+        desc = "Grab the recipe here: https://justinesnacks.com/carrot-white-bean-soup/"
+        urls = extract_recipe_links_from_patterns(desc)
+        assert "https://justinesnacks.com/carrot-white-bean-soup/" in urls
+
+    def test_author_comment_pattern_captures_unknown_domain(self):
+        """Author comment with recipe phrase captures unknown-domain URL."""
+        comment = "And you can find the full recipe here! https://justinesnacks.com/carrot-bread/"
+        urls = extract_recipe_links_from_patterns(comment)
+        assert "https://justinesnacks.com/carrot-bread/" in urls
 
 
 class TestLinkInBio:

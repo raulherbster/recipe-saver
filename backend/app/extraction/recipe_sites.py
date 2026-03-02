@@ -429,6 +429,70 @@ def parse_schema_recipe(html: str, source_url: str) -> Optional[SchemaRecipe]:
     )
 
 
+def parse_recipe_from_description(description: str, title: str) -> Optional[SchemaRecipe]:
+    """
+    Parse a recipe embedded directly in a video description.
+
+    Handles the common YouTube pattern where creators paste the full recipe
+    into the description, e.g.:
+
+        Ingredients:
+        2 cups flour
+        1 tsp salt
+        ...
+
+        Instructions:
+        1. Mix the flour...
+    """
+    if not description:
+        return None
+
+    # Require an explicit "Ingredients:" section
+    ingredients_match = re.search(
+        r'(?:^|\n)[ \t]*ingredients?[ \t]*:[ \t]*\n(.*?)(?=\n[ \t]*(?:instructions?|directions?|method|steps?|preparation)[ \t]*:|$)',
+        description,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not ingredients_match:
+        return None
+
+    ingredients_block = ingredients_match.group(1).strip()
+
+    # Parse each non-empty line as an ingredient
+    raw_lines = [l.strip() for l in ingredients_block.splitlines() if l.strip()]
+    # Skip lines that look like section headers or timestamps
+    ingredient_lines = [
+        l for l in raw_lines
+        if not re.match(r'^\d+:\d+', l)           # skip timestamps
+        and not re.match(r'^[A-Z\s]{10,}$', l)    # skip ALL-CAPS headers
+    ]
+    if not ingredient_lines:
+        return None
+
+    ingredients = [parse_ingredient_text(line.lstrip('-•*·').strip())
+                   for line in ingredient_lines]
+
+    # Optionally parse instructions
+    instructions_match = re.search(
+        r'(?:^|\n)[ \t]*(?:instructions?|directions?|method|steps?|preparation)[ \t]*:[ \t]*\n(.*?)(?=\n[ \t]*[A-Z][^\n]*:[ \t]*\n|$)',
+        description,
+        re.IGNORECASE | re.DOTALL,
+    )
+    instructions: list[str] = []
+    if instructions_match:
+        block = instructions_match.group(1).strip()
+        for line in block.splitlines():
+            line = re.sub(r'^[\d]+[.)]\s*', '', line.strip())
+            if line:
+                instructions.append(line)
+
+    return SchemaRecipe(
+        title=title,
+        ingredients=ingredients,
+        instructions=instructions if instructions else [],
+    )
+
+
 async def fetch_and_parse_recipe_url(url: str) -> Optional[SchemaRecipe]:
     """Fetch a URL and attempt to parse schema.org/Recipe."""
     try:
