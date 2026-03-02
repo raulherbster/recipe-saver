@@ -15,6 +15,9 @@ from app.extraction.recipe_sites import (
     expand_and_filter_recipe_urls,
     fetch_and_parse_recipe_url,
     parse_recipe_from_description,
+    is_non_recipe_platform,
+    is_shortened_url,
+    expand_shortened_url,
     SchemaRecipe,
     ParsedIngredient,
 )
@@ -191,10 +194,20 @@ async def extract_from_youtube(url: str) -> ExtractionResult:
                 if result:
                     return result
 
-            # Any remaining URLs in the comment still go through domain filtering.
+            # Any remaining URLs in the comment: the channel author is a trusted
+            # source, so bypass the recipe-domain allowlist. Only skip URLs that
+            # are definitively non-recipe platforms (YouTube, Instagram, etc.).
             other_urls = extract_urls_from_text(comment)
-            author_recipe_urls = await expand_and_filter_recipe_urls(other_urls)
-            for recipe_url in author_recipe_urls:
+            already_tried = set(pattern_urls)
+            for recipe_url in other_urls:
+                if recipe_url in already_tried:
+                    continue
+                if is_non_recipe_platform(recipe_url):
+                    continue
+                # Expand shortened URLs before attempting extraction.
+                if is_shortened_url(recipe_url):
+                    expanded = await expand_shortened_url(recipe_url)
+                    recipe_url = expanded or recipe_url
                 result = await try_schema_extraction(
                     recipe_url, yt_content, hashtags, url,
                     confidence=0.85, all_found_urls=all_found_urls

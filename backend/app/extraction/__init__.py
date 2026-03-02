@@ -21,6 +21,7 @@ from app.extraction.recipe_sites import (
     ParsedIngredient,
     is_recipe_url,
     filter_recipe_urls,
+    is_non_recipe_platform,
 )
 from app.extraction.llm_extractor import (
     extract_recipe_with_llm,
@@ -55,6 +56,7 @@ __all__ = [
     "ParsedIngredient",
     "is_recipe_url",
     "filter_recipe_urls",
+    "is_non_recipe_platform",
     "extract_recipe_with_llm",
     "CATEGORY_TAXONOMY",
     "preprocess_share_url",

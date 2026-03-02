@@ -67,6 +67,15 @@ RECIPE_PATH_PATTERNS = [
     r'/rezept[e]?/',
 ]
 
+# Platforms that never host recipes — URLs from these are skipped
+NON_RECIPE_PLATFORMS = {
+    "youtube.com", "youtu.be",
+    "instagram.com", "tiktok.com", "twitter.com", "x.com",
+    "facebook.com", "pinterest.com", "reddit.com",
+    "google.com", "amazon.com", "paypal.com",
+    "linktr.ee", "beacons.ai",
+}
+
 # Known URL shorteners associated with recipe sites
 KNOWN_RECIPE_SHORTENERS = {
     "nyti.ms": "nytimes.com",  # NYT Cooking
@@ -153,6 +162,17 @@ def is_recipe_url(url: str) -> bool:
 def is_recipe_url_or_shortener(url: str) -> bool:
     """Check if a URL is a recipe page OR a shortened URL that might be."""
     return is_recipe_url(url) or is_shortened_url(url)
+
+
+def is_non_recipe_platform(url: str) -> bool:
+    """Return True if the URL is from a platform that never hosts recipes."""
+    try:
+        domain = urlparse(url).netloc.lower()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return any(platform in domain for platform in NON_RECIPE_PLATFORMS)
+    except Exception:
+        return False
 
 
 def filter_recipe_urls(urls: list[str]) -> list[str]:

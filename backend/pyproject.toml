@@ -37,3 +37,6 @@ where = ["."]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "e2e: end-to-end tests that make real network requests (run with '-m e2e')",
+]
