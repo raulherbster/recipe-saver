@@ -127,6 +127,7 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
     final ingredients = _ingredientControllers
         .map((c) => c.text.trim())
         .where((s) => s.isNotEmpty)
+        .map((s) => {'name': s, 'raw_text': s})
         .toList();
     if (ingredients.isNotEmpty) payload['ingredients'] = ingredients;
 
