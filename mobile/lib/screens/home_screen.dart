@@ -145,10 +145,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return _buildEmpty();
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: state.recipes.length + (state.isLoading ? 1 : 0),
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: state.recipes.length + (state.isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == state.recipes.length) {
           return const Center(
@@ -196,6 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         );
       },
+    ),
     );
   }
 

@@ -81,12 +81,41 @@ class RecipeDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildContent(BuildContext context, WidgetRef ref, Recipe recipe) {
-    return CustomScrollView(
-      slivers: [
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+      child: CustomScrollView(
+        physics: const ClampingScrollPhysics(),
+        slivers: [
         // App bar with image
         SliverAppBar(
           expandedHeight: 250,
           pinned: true,
+          leading: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  color: Colors.black87, size: 18),
+              onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ),
           flexibleSpace: FlexibleSpaceBar(
             background: recipe.thumbnailUrl != null
                 ? CachedNetworkImage(
@@ -103,24 +132,47 @@ class RecipeDetailScreen extends ConsumerWidget {
                   ),
           ),
           actions: [
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'delete') {
-                  _deleteRecipe(context, ref);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete'),
-                    ],
+            Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-              ],
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert,
+                    color: Colors.black87, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _deleteRecipe(context, ref);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -184,6 +236,7 @@ class RecipeDetailScreen extends ConsumerWidget {
           ),
         ),
       ],
+    ),
     );
   }
 
