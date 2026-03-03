@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/providers.dart';
 import '../models/recipe.dart';
+import 'edit_recipe_screen.dart';
 
 class RecipeDetailScreen extends ConsumerWidget {
   final String recipeId;
@@ -155,12 +156,32 @@ class RecipeDetailScreen extends ConsumerWidget {
                     color: Colors.black87, size: 18),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onSelected: (value) {
-                  if (value == 'delete') {
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    final result = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditRecipeScreen(recipe: recipe),
+                      ),
+                    );
+                    if (result == true) {
+                      ref.invalidate(recipeDetailProvider(recipeId));
+                    }
+                  } else if (value == 'delete') {
                     _deleteRecipe(context, ref);
                   }
                 },
                 itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit),
+                        SizedBox(width: 8),
+                        Text('Edit'),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(
