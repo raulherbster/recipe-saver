@@ -226,16 +226,12 @@ class ExtractionNotifier extends StateNotifier<ExtractionState> {
 
   Future<void> extractRecipe({
     required String url,
-    String? manualCaption,
-    String? manualRecipeUrl,
   }) async {
     state = ExtractionState(isExtracting: true);
 
     try {
       final response = await _api.extractRecipe(
         url: url,
-        manualCaption: manualCaption,
-        manualRecipeUrl: manualRecipeUrl,
       );
 
       state = ExtractionState(

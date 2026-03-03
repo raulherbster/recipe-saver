@@ -156,14 +156,10 @@ class ApiService {
   /// Extract recipe from URL
   Future<ExtractionResponse> extractRecipe({
     required String url,
-    String? manualCaption,
-    String? manualRecipeUrl,
   }) async {
     try {
       final response = await _dio.post('/api/extract', data: {
         'url': url,
-        if (manualCaption != null) 'manual_caption': manualCaption,
-        if (manualRecipeUrl != null) 'manual_recipe_url': manualRecipeUrl,
       });
       return ExtractionResponse.fromJson(response.data);
     } on DioException catch (e) {

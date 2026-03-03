@@ -33,8 +33,6 @@ void main() {
 
         when(() => mockApiService.extractRecipe(
               url: 'https://youtube.com/watch?v=123',
-              manualCaption: null,
-              manualRecipeUrl: null,
             )).thenAnswer(
           (_) async => ExtractionResponse(
             success: true,
@@ -57,8 +55,6 @@ void main() {
       test('sets loading state during extraction', () async {
         when(() => mockApiService.extractRecipe(
               url: any(named: 'url'),
-              manualCaption: any(named: 'manualCaption'),
-              manualRecipeUrl: any(named: 'manualRecipeUrl'),
             )).thenAnswer((_) async {
           await Future.delayed(const Duration(milliseconds: 50));
           return ExtractionResponse(
@@ -78,41 +74,34 @@ void main() {
         expect(notifier.state.isExtracting, false);
       });
 
-      test('passes manual caption for Instagram', () async {
+      test('extracts Instagram Reel automatically without manual caption', () async {
         when(() => mockApiService.extractRecipe(
-              url: 'https://instagram.com/p/123',
-              manualCaption: 'Recipe instructions here',
-              manualRecipeUrl: null,
+              url: 'https://www.instagram.com/reel/Cx8Nf5-OLoX/',
             )).thenAnswer(
           (_) async => ExtractionResponse(
             success: true,
-            method: 'instagram',
-            confidence: 0.8,
-            message: 'Extracted from caption',
+            method: 'description_parsed',
+            confidence: 0.75,
+            message: 'Extracted from Instagram Reel',
           ),
         );
 
         await notifier.extractRecipe(
-          url: 'https://instagram.com/p/123',
-          manualCaption: 'Recipe instructions here',
+          url: 'https://www.instagram.com/reel/Cx8Nf5-OLoX/',
         );
 
         verify(() => mockApiService.extractRecipe(
-              url: 'https://instagram.com/p/123',
-              manualCaption: 'Recipe instructions here',
-              manualRecipeUrl: null,
+              url: 'https://www.instagram.com/reel/Cx8Nf5-OLoX/',
             )).called(1);
       });
 
-      test('passes manual recipe URL', () async {
+      test('extracts YouTube URL automatically', () async {
         when(() => mockApiService.extractRecipe(
               url: 'https://youtube.com/watch?v=123',
-              manualCaption: null,
-              manualRecipeUrl: 'https://example.com/recipe',
             )).thenAnswer(
           (_) async => ExtractionResponse(
             success: true,
-            method: 'recipe_site',
+            method: 'schema_org',
             confidence: 0.95,
             message: 'Extracted from recipe site',
           ),
@@ -120,21 +109,16 @@ void main() {
 
         await notifier.extractRecipe(
           url: 'https://youtube.com/watch?v=123',
-          manualRecipeUrl: 'https://example.com/recipe',
         );
 
         verify(() => mockApiService.extractRecipe(
               url: 'https://youtube.com/watch?v=123',
-              manualCaption: null,
-              manualRecipeUrl: 'https://example.com/recipe',
             )).called(1);
       });
 
       test('sets error from failed extraction response', () async {
         when(() => mockApiService.extractRecipe(
               url: any(named: 'url'),
-              manualCaption: any(named: 'manualCaption'),
-              manualRecipeUrl: any(named: 'manualRecipeUrl'),
             )).thenAnswer(
           (_) async => ExtractionResponse(
             success: false,
@@ -156,8 +140,6 @@ void main() {
       test('sets error on exception', () async {
         when(() => mockApiService.extractRecipe(
               url: any(named: 'url'),
-              manualCaption: any(named: 'manualCaption'),
-              manualRecipeUrl: any(named: 'manualRecipeUrl'),
             )).thenThrow(Exception('Network error'));
 
         await notifier.extractRecipe(url: 'https://youtube.com/watch?v=123');
@@ -171,8 +153,6 @@ void main() {
       test('clears state to initial values', () async {
         when(() => mockApiService.extractRecipe(
               url: any(named: 'url'),
-              manualCaption: any(named: 'manualCaption'),
-              manualRecipeUrl: any(named: 'manualRecipeUrl'),
             )).thenAnswer(
           (_) async => ExtractionResponse(
             success: true,
