@@ -32,6 +32,10 @@ from app.extraction.url_utils import (
     clean_url,
     extract_url_from_share_text,
 )
+from app.extraction.instagram import (
+    fetch_instagram_metadata,
+    InstagramContent,
+)
 from app.extraction.recipe_search import (
     search_recipe_sites,
     search_recipe_by_title_author,
@@ -62,6 +66,8 @@ __all__ = [
     "preprocess_share_url",
     "clean_url",
     "extract_url_from_share_text",
+    "fetch_instagram_metadata",
+    "InstagramContent",
     "search_recipe_sites",
     "search_recipe_by_title_author",
     "calculate_title_similarity",

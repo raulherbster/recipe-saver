@@ -15,8 +15,6 @@ class AddRecipeScreen extends ConsumerStatefulWidget {
 
 class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
   final _urlController = TextEditingController();
-  final _captionController = TextEditingController();
-  bool _showCaptionField = false;
 
   @override
   void initState() {
@@ -30,7 +28,6 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
   @override
   void dispose() {
     _urlController.dispose();
-    _captionController.dispose();
     super.dispose();
   }
 
@@ -45,23 +42,12 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
     final url = _urlController.text.trim();
     if (url.isEmpty) return;
 
-    // Check if Instagram - show caption field
-    if (url.contains('instagram.com') && !_showCaptionField) {
-      setState(() => _showCaptionField = true);
-      return;
-    }
-
-    ref.read(extractionProvider.notifier).extractRecipe(
-          url: url,
-          manualCaption: _showCaptionField ? _captionController.text : null,
-        );
+    ref.read(extractionProvider.notifier).extractRecipe(url: url);
   }
 
   void _reset() {
     ref.read(extractionProvider.notifier).reset();
     _urlController.clear();
-    _captionController.clear();
-    setState(() => _showCaptionField = false);
   }
 
   void _viewRecipe(String recipeId) {
@@ -90,18 +76,12 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
             _buildUrlInput(),
             const SizedBox(height: 16),
 
-            // Instagram caption field
-            if (_showCaptionField) ...[
-              _buildCaptionInput(),
-              const SizedBox(height: 16),
-            ],
-
             // Extract button
             if (!extractionState.isExtracting && extractionState.response == null)
               FilledButton.icon(
                 onPressed: _startExtraction,
                 icon: const Icon(Icons.auto_awesome),
-                label: Text(_showCaptionField ? 'Extract Recipe' : 'Extract Recipe'),
+                label: const Text('Extract Recipe'),
               ),
 
             // Loading state
@@ -149,43 +129,6 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.outline,
               ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCaptionInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.info_outline,
-                 size: 20,
-                 color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Instagram requires manual help',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Please paste the caption from the Instagram post. Check the bio for a recipe link too!',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _captionController,
-          decoration: const InputDecoration(
-            hintText: 'Paste caption here...',
-            prefixIcon: Icon(Icons.notes),
-          ),
-          maxLines: 5,
-          minLines: 3,
         ),
       ],
     );

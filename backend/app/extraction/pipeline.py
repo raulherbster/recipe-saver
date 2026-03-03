@@ -27,6 +27,7 @@ from app.extraction.llm_extractor import (
 )
 from app.extraction.url_utils import preprocess_share_url
 from app.extraction.recipe_search import search_recipe_sites
+from app.extraction.instagram import is_instagram_reel, extract_from_instagram as _extract_from_instagram_reel
 from app.config import get_settings
 
 
@@ -446,6 +447,10 @@ async def extract_recipe(
     if platform == SourcePlatform.YOUTUBE:
         return await extract_from_youtube(url)
     elif platform == SourcePlatform.INSTAGRAM:
+        # Instagram Reels: auto-extract via yt-dlp
+        if is_instagram_reel(url):
+            return await _extract_from_instagram_reel(url)
+        # Non-Reel Instagram (e.g. /p/...): keep the old manual path
         return await extract_from_instagram(url, manual_caption, manual_recipe_url)
     else:
         # Assume it's a direct recipe URL
