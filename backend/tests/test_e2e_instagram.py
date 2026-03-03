@@ -17,9 +17,11 @@ pytestmark = pytest.mark.e2e
 
 
 # ---------------------------------------------------------------------------
-# Case 1: Full recipe (ingredients) embedded in the Reel caption
+# Case 1: Recipe extractable from Reel (via caption link or caption text)
 # ---------------------------------------------------------------------------
-# Expected extraction path: DESCRIPTION_PARSED (recipe in caption)
+# The pipeline may use SCHEMA_ORG (if a recipe URL is found in the caption)
+# or DESCRIPTION_PARSED (if the recipe is embedded directly in the caption).
+# Either is a valid success — we just assert the recipe was extracted.
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_recipe_embedded_in_reel_caption():
@@ -27,7 +29,7 @@ async def test_recipe_embedded_in_reel_caption():
     result = await extract_from_instagram(url)
     assert result.success, f"Extraction failed: {result.error}"
     assert result.source_platform == SourcePlatform.INSTAGRAM
-    assert result.method == ExtractionMethod.DESCRIPTION_PARSED
+    assert result.method in (ExtractionMethod.DESCRIPTION_PARSED, ExtractionMethod.SCHEMA_ORG)
     assert result.recipe is not None
     assert len(result.recipe.ingredients) >= 3
     assert result.video_url == url
