@@ -95,8 +95,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _deleteRecipe(String recipeId) async {
     try {
+      // Delete from the API first, then let the notifier clean up the cache
+      // and in-memory list.
       await ref.read(apiServiceProvider).deleteRecipe(recipeId);
-      ref.read(recipesProvider.notifier).removeRecipe(recipeId);
+      await ref.read(recipesProvider.notifier).removeRecipe(recipeId);
     } catch (e) {
       debugPrint('Failed to delete recipe $recipeId: $e');
       if (mounted) {
@@ -137,6 +139,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBody(RecipesState state) {
+    return Column(
+      children: [
+        if (state.isOffline)
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.errorContainer,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.wifi_off,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Offline — showing cached recipes',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(child: _buildContent(state)),
+      ],
+    );
+  }
+
+  Widget _buildContent(RecipesState state) {
     if (state.error != null && state.recipes.isEmpty) {
       return _buildError(state.error!);
     }
@@ -151,54 +183,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
         itemCount: state.recipes.length + (state.isLoading ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == state.recipes.length) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
+        itemBuilder: (context, index) {
+          if (index == state.recipes.length) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          final recipe = state.recipes[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Dismissible(
+              key: ValueKey(recipe.id),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (_) => _confirmDelete(recipe.id),
+              onDismissed: (_) => _deleteRecipe(recipe.id),
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.error,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Delete',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(Icons.delete, color: Colors.white),
+                  ],
+                ),
+              ),
+              child: RecipeCard(
+                recipe: recipe,
+                onTap: () => _openRecipeDetail(recipe.id),
+              ),
             ),
           );
-        }
-
-        final recipe = state.recipes[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Dismissible(
-            key: ValueKey(recipe.id),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (_) => _confirmDelete(recipe.id),
-            onDismissed: (_) => _deleteRecipe(recipe.id),
-            background: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.error,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'Delete',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(Icons.delete, color: Colors.white),
-                ],
-              ),
-            ),
-            child: RecipeCard(
-              recipe: recipe,
-              onTap: () => _openRecipeDetail(recipe.id),
-            ),
-          ),
-        );
-      },
-    ),
+        },
+      ),
     );
   }
 
