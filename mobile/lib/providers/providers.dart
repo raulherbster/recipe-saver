@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
+import '../services/local_db_service.dart';
 import '../models/recipe.dart';
 
 /// API base URL - change this for production
@@ -10,6 +11,11 @@ const String apiBaseUrl = 'http://10.0.2.2:8000'; // Android emulator localhost
 /// API service provider
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService(baseUrl: apiBaseUrl);
+});
+
+/// Local SQLite cache provider
+final localDbServiceProvider = Provider<LocalDbService>((ref) {
+  return LocalDbService();
 });
 
 /// Categories provider
@@ -25,6 +31,7 @@ class RecipesState {
   final bool hasMore;
   final int currentPage;
   final String? error;
+  final bool isOffline;
 
   RecipesState({
     this.recipes = const [],
@@ -32,6 +39,7 @@ class RecipesState {
     this.hasMore = true,
     this.currentPage = 0,
     this.error,
+    this.isOffline = false,
   });
 
   RecipesState copyWith({
@@ -40,6 +48,7 @@ class RecipesState {
     bool? hasMore,
     int? currentPage,
     String? error,
+    bool? isOffline,
   }) {
     return RecipesState(
       recipes: recipes ?? this.recipes,
@@ -47,15 +56,17 @@ class RecipesState {
       hasMore: hasMore ?? this.hasMore,
       currentPage: currentPage ?? this.currentPage,
       error: error,
+      isOffline: isOffline ?? this.isOffline,
     );
   }
 }
 
-/// Recipes list notifier with pagination
+/// Recipes list notifier with pagination and local cache.
 class RecipesNotifier extends StateNotifier<RecipesState> {
   final ApiService _api;
+  final LocalDbService _db;
 
-  RecipesNotifier(this._api) : super(RecipesState());
+  RecipesNotifier(this._api, this._db) : super(RecipesState());
 
   Future<void> loadRecipes({bool refresh = false}) async {
     if (state.isLoading) return;
@@ -65,28 +76,49 @@ class RecipesNotifier extends StateNotifier<RecipesState> {
 
     state = state.copyWith(isLoading: true, error: null);
 
+    // On refresh, immediately seed the UI with whatever is cached.
+    if (refresh && state.recipes.isEmpty) {
+      final cached = await _db.getRecipeSummaries();
+      if (cached.isNotEmpty) {
+        state = state.copyWith(recipes: cached);
+      }
+    }
+
     try {
       final result = await _api.getRecipes(page: page);
 
-      final newRecipes = refresh ? result.recipes : [...state.recipes, ...result.recipes];
+      final newRecipes = refresh
+          ? result.recipes
+          : [...state.recipes, ...result.recipes];
+
+      // Persist the fresh page to the local cache.
+      await _db.saveRecipeSummaries(result.recipes);
 
       state = state.copyWith(
         recipes: newRecipes,
         isLoading: false,
         hasMore: page < result.totalPages,
         currentPage: page,
+        isOffline: false,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      if (refresh && state.recipes.isNotEmpty) {
+        // Show cached data with an offline indicator — don't surface an error.
+        state = state.copyWith(isLoading: false, isOffline: true);
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        );
+      }
     }
   }
 
   Future<void> refresh() => loadRecipes(refresh: true);
 
-  void removeRecipe(String id) {
+  /// Remove a recipe from the in-memory list and the local cache.
+  Future<void> removeRecipe(String id) async {
+    await _db.deleteRecipe(id);
     state = state.copyWith(
       recipes: state.recipes.where((r) => r.id != id).toList(),
     );
@@ -95,13 +127,26 @@ class RecipesNotifier extends StateNotifier<RecipesState> {
 
 final recipesProvider = StateNotifierProvider<RecipesNotifier, RecipesState>((ref) {
   final api = ref.watch(apiServiceProvider);
-  return RecipesNotifier(api);
+  final db = ref.watch(localDbServiceProvider);
+  return RecipesNotifier(api, db);
 });
 
-/// Single recipe detail provider
+/// Single recipe detail provider with local-cache fallback.
+///
+/// Always tries to fetch fresh data from the API first. If the network is
+/// unavailable and we have a cached copy, that is returned instead.
 final recipeDetailProvider = FutureProvider.family<Recipe, String>((ref, id) async {
   final api = ref.watch(apiServiceProvider);
-  return api.getRecipe(id);
+  final db = ref.watch(localDbServiceProvider);
+  try {
+    final fresh = await api.getRecipe(id);
+    await db.saveRecipeDetail(fresh);
+    return fresh;
+  } catch (_) {
+    final cached = await db.getRecipeDetail(id);
+    if (cached != null) return cached;
+    rethrow;
+  }
 });
 
 /// Search state

@@ -43,6 +43,7 @@ dev_dependencies:
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.8
   mocktail: ^1.0.0
+  sqflite_common_ffi: ^2.3.3
 
 flutter:
   uses-material-design: true
