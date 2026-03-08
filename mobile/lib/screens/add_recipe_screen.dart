@@ -104,14 +104,14 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Paste a YouTube or Instagram URL',
+          'Paste a recipe URL',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _urlController,
           decoration: InputDecoration(
-            hintText: 'https://youtube.com/watch?v=...',
+            hintText: 'https://...',
             prefixIcon: const Icon(Icons.link),
             suffixIcon: IconButton(
               icon: const Icon(Icons.content_paste),
@@ -125,7 +125,7 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'We\'ll look for recipe links in the video description and extract the recipe automatically.',
+          'Supports YouTube, Instagram, and direct recipe website links.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.outline,
               ),
