@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:recipe_saver/providers/providers.dart';
 import 'package:recipe_saver/screens/home_screen.dart';
 import 'package:recipe_saver/services/api_service.dart';
+import 'package:recipe_saver/services/local_db_service.dart';
 import 'package:recipe_saver/models/recipe.dart';
 
 /// Mock API service that returns empty/mock data
@@ -28,18 +29,41 @@ class MockApiService extends ApiService {
   }
 }
 
+/// Stub local DB that never touches disk.
+class StubLocalDbService extends LocalDbService {
+  @override
+  Future<List<RecipeSummary>> getRecipeSummaries() async => [];
+
+  @override
+  Future<void> saveRecipeSummaries(List<RecipeSummary> summaries) async {}
+
+  @override
+  Future<void> saveRecipeDetail(Recipe recipe) async {}
+
+  @override
+  Future<Recipe?> getRecipeDetail(String id) async => null;
+
+  @override
+  Future<void> deleteRecipe(String id) async {}
+
+  @override
+  Future<void> clearAll() async {}
+}
+
+/// Convenience helper that builds a ProviderScope with both mocks.
+Widget _buildApp({Widget home = const HomeScreen()}) {
+  return ProviderScope(
+    overrides: [
+      apiServiceProvider.overrideWithValue(MockApiService()),
+      localDbServiceProvider.overrideWithValue(StubLocalDbService()),
+    ],
+    child: MaterialApp(home: home),
+  );
+}
+
 void main() {
   testWidgets('Home screen shows correct title', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          apiServiceProvider.overrideWithValue(MockApiService()),
-        ],
-        child: const MaterialApp(
-          home: HomeScreen(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_buildApp());
 
     // Wait for async operations to complete
     await tester.pumpAndSettle();
@@ -48,16 +72,7 @@ void main() {
   });
 
   testWidgets('Home screen shows Add Recipe FAB', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          apiServiceProvider.overrideWithValue(MockApiService()),
-        ],
-        child: const MaterialApp(
-          home: HomeScreen(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_buildApp());
 
     await tester.pumpAndSettle();
 
@@ -66,16 +81,7 @@ void main() {
   });
 
   testWidgets('Home screen shows search icon', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          apiServiceProvider.overrideWithValue(MockApiService()),
-        ],
-        child: const MaterialApp(
-          home: HomeScreen(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_buildApp());
 
     await tester.pumpAndSettle();
 
@@ -84,16 +90,7 @@ void main() {
 
   testWidgets('Home screen shows empty state when no recipes',
       (WidgetTester tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          apiServiceProvider.overrideWithValue(MockApiService()),
-        ],
-        child: const MaterialApp(
-          home: HomeScreen(),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_buildApp());
 
     await tester.pumpAndSettle();
 

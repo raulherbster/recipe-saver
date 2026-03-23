@@ -100,6 +100,8 @@ class Tag {
       source: json['source'],
     );
   }
+
+  Map<String, dynamic> toJson() => {'id': id, 'tag': tag, 'source': source};
 }
 
 class Recipe {
@@ -205,9 +207,18 @@ class Recipe {
       'difficulty': difficulty,
       'ingredients': ingredients.map((e) => e.toJson()).toList(),
       'categories': categories.map((e) => e.toJson()).toList(),
+      'tags': tags.map((e) => e.toJson()).toList(),
       'video_url': videoUrl,
+      'video_platform': videoPlatform,
       'recipe_page_url': recipePageUrl,
+      'recipe_site_name': recipeSiteName,
+      'original_caption': originalCaption,
       'thumbnail_url': thumbnailUrl,
+      'author_name': authorName,
+      'extraction_method': extractionMethod,
+      'extraction_confidence': extractionConfidence,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
@@ -267,6 +278,18 @@ class RecipeSummary {
       createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'thumbnail_url': thumbnailUrl,
+        'total_time_mins': totalTimeMins,
+        'difficulty': difficulty,
+        'source_platform': sourcePlatform,
+        'recipe_site_name': recipeSiteName,
+        'created_at': createdAt.toIso8601String(),
+      };
 
   String? get formattedTime {
     final mins = totalTimeMins;
