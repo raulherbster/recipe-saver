@@ -147,37 +147,40 @@ class ExtractionService {
         return ExtractionResult.ok(fromDesc, 'description_parse');
       }
 
-      // 4. Scan first-page comments for recipe URLs posted by the channel author
+      // 4. Scan first-page comments for recipe URLs posted by the channel author.
+      //    Try the library first; if it crashes (common for Shorts due to a null
+      //    check bug in _Comment._commentRenderer), fall back to a direct
+      //    InnerTube API call that handles null safely.
+      final authorId = video.channelId.value;
+      bool libraryCommentSucceeded = false;
       try {
         final comments = await yt.videos.comments.getComments(video);
         if (comments != null) {
-          final authorId = video.channelId.value;
+          libraryCommentSucceeded = true;
           for (final comment in comments) {
             if (comment.channelId.value != authorId) continue;
-            final commentUrls = _extractUrls(comment.text);
-            for (final recipeUrl in commentUrls) {
-              if (_isYouTube(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
-              if (_isInstagram(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
-              final html = await _fetchHtml(recipeUrl);
-              if (html != null) {
-                final recipe = _parseJsonLd(html, sourceUrl: recipeUrl);
-                if (recipe != null) {
-                  return ExtractionResult.ok(
-                    recipe.copyWith(
-                      videoUrl: url,
-                      videoPlatform: 'youtube',
-                      authorName: channel,
-                      thumbnailUrl: recipe.thumbnailUrl ?? thumbnail,
-                    ),
-                    'schema_org',
-                  );
-                }
-              }
-            }
+            final result = await _checkCommentForRecipe(
+              commentText: comment.text,
+              videoUrl: url,
+              channel: channel,
+              thumbnail: thumbnail,
+            );
+            if (result != null) return result;
           }
         }
       } catch (_) {
-        // Comment API is unreliable — ignore failures silently.
+        // Library crashed — will fall through to InnerTube fallback below.
+      }
+
+      if (!libraryCommentSucceeded) {
+        final result = await _scanAuthorCommentViaInnerTube(
+          videoId: video.id.value,
+          authorChannelId: authorId,
+          videoUrl: url,
+          authorName: channel,
+          thumbnail: thumbnail,
+        );
+        if (result != null) return result;
       }
 
       return ExtractionResult.fail(
@@ -519,6 +522,251 @@ class ExtractionService {
       createdAt: now,
       updatedAt: now,
     );
+  }
+
+  // ── YouTube comment helpers ──────────────────────────────────────────────
+
+  /// Checks a single comment's text for recipe links and returns a result if one
+  /// is found.  Returns null if nothing useful is found.
+  Future<ExtractionResult?> _checkCommentForRecipe({
+    required String commentText,
+    required String videoUrl,
+    required String channel,
+    required String? thumbnail,
+  }) async {
+    for (final recipeUrl in _extractUrls(commentText)) {
+      if (_isYouTube(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
+      if (_isInstagram(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
+      final html = await _fetchHtml(recipeUrl);
+      if (html != null) {
+        final recipe = _parseJsonLd(html, sourceUrl: recipeUrl);
+        if (recipe != null) {
+          return ExtractionResult.ok(
+            recipe.copyWith(
+              videoUrl: videoUrl,
+              videoPlatform: 'youtube',
+              authorName: channel,
+              thumbnailUrl: recipe.thumbnailUrl ?? thumbnail,
+            ),
+            'schema_org',
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Fallback comment scanner that bypasses youtube_explode_dart and calls the
+  /// YouTube InnerTube API directly.  Used when the library crashes (e.g. for
+  /// Shorts whose comment JSON has a different shape).
+  ///
+  /// Flow:
+  ///   1. POST /youtubei/v1/next with videoId → get comments-section
+  ///      continuation token from the page's initial data.
+  ///   2. POST /youtubei/v1/next with that token → get the first batch of
+  ///      comment thread renderers.
+  ///   3. Iterate, skip non-author comments, check for recipe URLs, stop on
+  ///      first hit.
+  Future<ExtractionResult?> _scanAuthorCommentViaInnerTube({
+    required String videoId,
+    required String authorChannelId,
+    required String videoUrl,
+    required String authorName,
+    required String? thumbnail,
+  }) async {
+    try {
+      final sectionToken = await _getCommentsSectionToken(videoId);
+      if (sectionToken == null) return null;
+
+      final commentItems = await _fetchInnerTubeCommentPage(sectionToken);
+      for (final c in commentItems) {
+        if (c['channelId'] != authorChannelId) continue;
+        final text = c['text'] ?? '';
+        final result = await _checkCommentForRecipe(
+          commentText: text,
+          videoUrl: videoUrl,
+          channel: authorName,
+          thumbnail: thumbnail,
+        );
+        if (result != null) return result;
+      }
+    } catch (_) {
+      // InnerTube API is also unreliable — fail silently.
+    }
+    return null;
+  }
+
+  /// Returns the comments-section continuation token for [videoId] by hitting
+  /// the InnerTube /next endpoint and walking the response JSON.
+  Future<String?> _getCommentsSectionToken(String videoId) async {
+    try {
+      final resp = await _dio.post<String>(
+        'https://www.youtube.com/youtubei/v1/next',
+        data: jsonEncode({
+          'context': {
+            'client': {
+              'clientName': 'WEB',
+              'clientVersion': '2.20231201.01.00',
+              'hl': 'en',
+            },
+          },
+          'videoId': videoId,
+        }),
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+      if (resp.data == null) return null;
+      final data = jsonDecode(resp.data!) as Map<String, dynamic>;
+      return _findCommentsContinuationToken(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Walks the InnerTube /next response to find the comments-section
+  /// continuation token.  Handles both twoColumnWatchNextResults (regular
+  /// videos) and singleColumnWatchNextResults (Shorts / mobile).
+  String? _findCommentsContinuationToken(Map<String, dynamic> data) {
+    final contents = data['contents'] as Map?;
+    if (contents == null) return null;
+
+    for (final key in [
+      'twoColumnWatchNextResults',
+      'singleColumnWatchNextResults',
+    ]) {
+      final token = _tokenFromWatchNextResults(contents[key]);
+      if (token != null) return token;
+    }
+    return null;
+  }
+
+  String? _tokenFromWatchNextResults(dynamic results) {
+    if (results is! Map) return null;
+    // Navigate to results.results.contents
+    final items = (results['results'] as Map?)?['results']?['contents'] as List?
+        ?? (results['results'] as Map?)?['contents'] as List?;
+    if (items == null) return null;
+
+    // Find the last itemSectionRenderer — that is the comments placeholder.
+    for (final item in items.reversed) {
+      final section = (item as Map?)?['itemSectionRenderer'];
+      if (section == null) continue;
+      final sectionContents = section['contents'] as List?;
+      if (sectionContents == null) continue;
+      for (final c in sectionContents) {
+        final token = (c as Map?)?['continuationItemRenderer']
+            ?['continuationEndpoint']?['continuationCommand']?['token'] as String?;
+        if (token != null) return token;
+      }
+    }
+    return null;
+  }
+
+  /// Sends [continuation] to the InnerTube /next endpoint and extracts a flat
+  /// list of `{channelId, text}` maps from the comment thread renderers.
+  Future<List<Map<String, String>>> _fetchInnerTubeCommentPage(
+      String continuation) async {
+    final resp = await _dio.post<String>(
+      'https://www.youtube.com/youtubei/v1/next',
+      data: jsonEncode({
+        'context': {
+          'client': {
+            'clientName': 'WEB',
+            'clientVersion': '2.20231201.01.00',
+            'hl': 'en',
+          },
+        },
+        'continuation': continuation,
+      }),
+      options: Options(
+        responseType: ResponseType.plain,
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    if (resp.data == null) return [];
+    final data = jsonDecode(resp.data!) as Map<String, dynamic>;
+    return _parseInnerTubeComments(data);
+  }
+
+  /// Parses a YouTube InnerTube /next response into a flat list of
+  /// `{channelId, text}` maps, handling both response formats:
+  ///
+  /// - **Old format** (regular videos): comment content is inline in
+  ///   `commentThreadRenderer.comment.commentRenderer`.
+  /// - **New format** (Shorts / recent API): `commentThreadRenderer` contains
+  ///   only a `commentViewModel` with a `commentKey`; the actual text and
+  ///   author are stored in `frameworkUpdates.entityBatchUpdate.mutations`.
+  List<Map<String, String>> _parseInnerTubeComments(
+      Map<String, dynamic> data) {
+    // Build a lookup table from the new-format mutations so we can resolve
+    // commentViewModel keys to {text, channelId} without extra requests.
+    final commentMutations = <String, Map<String, String>>{};
+    final mutations = (data['frameworkUpdates'] as Map?)
+        ?['entityBatchUpdate']?['mutations'] as List?;
+    if (mutations != null) {
+      for (final m in mutations) {
+        final entityPayload =
+            (m as Map?)?['payload']?['commentEntityPayload'] as Map?;
+        if (entityPayload == null) continue;
+        final key = entityPayload['key'] as String?;
+        final text = (entityPayload['properties'] as Map?)
+            ?['content']?['content'] as String?;
+        final channelId =
+            (entityPayload['author'] as Map?)?['channelId'] as String?;
+        if (key != null && text != null && channelId != null) {
+          commentMutations[key] = {'text': text, 'channelId': channelId};
+        }
+      }
+    }
+
+    final result = <Map<String, String>>[];
+    final endpoints = data['onResponseReceivedEndpoints'] as List?;
+    if (endpoints == null) return result;
+
+    for (final ep in endpoints) {
+      final items = (ep as Map?)?['appendContinuationItemsAction']
+              ?['continuationItems'] as List? ??
+          (ep)?['reloadContinuationItemsCommand']?['continuationItems']
+              as List?;
+      if (items == null) continue;
+
+      for (final item in items) {
+        final threadRenderer =
+            (item as Map?)?['commentThreadRenderer'] as Map?;
+        if (threadRenderer == null) continue;
+
+        // New format: look up the commentKey in the mutations table.
+        final commentKey =
+            (threadRenderer['commentViewModel'] as Map?)?['commentViewModel']
+                ?['commentKey'] as String?;
+        if (commentKey != null) {
+          final mutation = commentMutations[commentKey];
+          if (mutation != null) {
+            result.add(mutation);
+            continue;
+          }
+        }
+
+        // Old format: content is inline in commentRenderer.
+        final commentRenderer =
+            (threadRenderer['comment'] as Map?)?['commentRenderer'] as Map? ??
+                threadRenderer['commentRenderer'] as Map?;
+        if (commentRenderer == null) continue;
+
+        final runs =
+            (commentRenderer['contentText'] as Map?)?['runs'] as List?;
+        final text =
+            runs?.map((r) => (r as Map?)?['text'] ?? '').join('') ?? '';
+        final channelId = (commentRenderer['authorEndpoint'] as Map?)
+            ?['browseEndpoint']?['browseId'] as String?;
+        if (channelId != null && text.isNotEmpty) {
+          result.add({'channelId': channelId, 'text': text});
+        }
+      }
+    }
+    return result;
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────

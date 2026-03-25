@@ -8,6 +8,11 @@
             "type": "command",
             "command": ".claude/hooks/pre-pr-check.sh",
             "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-push-to-main.sh",
+            "timeout": 10
           }
         ]
       }
