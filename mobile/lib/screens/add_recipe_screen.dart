@@ -19,10 +19,14 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialUrl != null) {
-      _urlController.text = widget.initialUrl!;
-      _startExtraction();
-    }
+    // Reset any stale extraction state from a previous visit to this screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(extractionProvider.notifier).reset();
+      if (widget.initialUrl != null) {
+        _urlController.text = widget.initialUrl!;
+        _startExtraction();
+      }
+    });
   }
 
   @override
@@ -221,18 +225,16 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: OutlinedButton(
                     onPressed: _reset,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Add Another'),
+                    child: const Text('Add Another'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
+                  child: FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Done'),
+                    child: const Text('Done'),
                   ),
                 ),
               ],
