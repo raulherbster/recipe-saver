@@ -87,6 +87,22 @@ void main() {
       expect(r.videoUrl, contains('youtube.com'));
       expect(r.videoPlatform, 'youtube');
     });
+
+    // This Short has an empty description — the recipe link appears only in a
+    // pinned author comment. Exercises the InnerTube fallback added after the
+    // youtube_explode_dart comments API was found to crash on Shorts.
+    test('extracts recipe via InnerTube fallback (empty description)', () async {
+      final result = await service.extract(
+        'https://www.youtube.com/shorts/KBw1ZLISWhM',
+      );
+
+      expect(result.success, isTrue, reason: result.error);
+      final r = result.recipe!;
+      expect(r.title, isNotEmpty);
+      expect(r.ingredients, isNotEmpty);
+      expect(r.videoUrl, contains('youtube.com'));
+      expect(r.videoPlatform, 'youtube');
+    });
   });
 
   // ── YouTube videos ────────────────────────────────────────────────────────
