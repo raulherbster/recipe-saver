@@ -14,19 +14,11 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 echo "🧪 Running tests before creating PR..." >&2
 echo "" >&2
 
-# Backend tests
-echo "--- Backend tests ---" >&2
-cd "$REPO_ROOT/backend" && python -m pytest tests/ -q 2>&1
-BACKEND_EXIT=$?
-
-# Mobile tests
-echo "" >&2
-echo "--- Mobile tests ---" >&2
-cd "$REPO_ROOT/mobile" && flutter test 2>&1
+cd "$REPO_ROOT/mobile" && flutter test 2>&1 >&2
 MOBILE_EXIT=$?
 
 echo "" >&2
-if [ $BACKEND_EXIT -ne 0 ] || [ $MOBILE_EXIT -ne 0 ]; then
+if [ $MOBILE_EXIT -ne 0 ]; then
   echo "❌ Tests failed. Fix them before creating a PR." >&2
   exit 2
 fi

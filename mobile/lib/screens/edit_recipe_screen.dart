@@ -152,6 +152,7 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
   Future<bool> _confirmDiscard() async {
     final shouldDiscard = await showDialog<bool>(
       context: context,
+      barrierDismissible: true,
       builder: (ctx) => AlertDialog(
         title: const Text('Discard changes?'),
         content: const Text('You have unsaved changes that will be lost.'),
@@ -173,46 +174,62 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
   Future<void> _save() async {
     setState(() => _isSaving = true);
 
-    final payload = <String, dynamic>{};
-
     final title = _titleController.text.trim();
-    if (title.isNotEmpty) payload['title'] = title;
-
     final description = _descriptionController.text.trim();
-    if (description.isNotEmpty) payload['description'] = description;
-
     final servings = _servingsController.text.trim();
-    if (servings.isNotEmpty) payload['servings'] = servings;
-
     final difficulty = _difficultyController.text.trim();
-    if (difficulty.isNotEmpty) payload['difficulty'] = difficulty;
-
     final prepTime = int.tryParse(_prepTimeMinsController.text.trim());
-    if (prepTime != null) payload['prep_time_mins'] = prepTime;
-
     final cookTime = int.tryParse(_cookTimeMinsController.text.trim());
-    if (cookTime != null) payload['cook_time_mins'] = cookTime;
-
     final totalTime = int.tryParse(_totalTimeMinsController.text.trim());
-    if (totalTime != null) payload['total_time_mins'] = totalTime;
 
     final ingredients = _ingredientControllers
-        .map((c) => c.text.trim())
-        .where((s) => s.isNotEmpty)
-        .map((s) => {'name': s, 'raw_text': s})
+        .asMap()
+        .entries
+        .where((e) => e.value.text.trim().isNotEmpty)
+        .map((e) => Ingredient(
+              id: e.key < widget.recipe.ingredients.length
+                  ? widget.recipe.ingredients[e.key].id
+                  : 'ing-${widget.recipe.id}-${e.key}',
+              name: e.value.text.trim(),
+              sortOrder: e.key,
+            ))
         .toList();
-    if (ingredients.isNotEmpty) payload['ingredients'] = ingredients;
 
     final instructions = _instructionControllers
         .map((c) => c.text.trim())
         .where((s) => s.isNotEmpty)
         .toList();
-    if (instructions.isNotEmpty) payload['instructions'] = instructions;
 
     try {
-      await ref
-          .read(apiServiceProvider)
-          .updateRecipe(widget.recipe.id, payload);
+      final updated = Recipe(
+        id: widget.recipe.id,
+        title: title.isNotEmpty ? title : widget.recipe.title,
+        description:
+            description.isNotEmpty ? description : widget.recipe.description,
+        servings: servings.isNotEmpty ? servings : widget.recipe.servings,
+        difficulty:
+            difficulty.isNotEmpty ? difficulty : widget.recipe.difficulty,
+        prepTimeMins: prepTime ?? widget.recipe.prepTimeMins,
+        cookTimeMins: cookTime ?? widget.recipe.cookTimeMins,
+        totalTimeMins: totalTime ?? widget.recipe.totalTimeMins,
+        ingredients:
+            ingredients.isNotEmpty ? ingredients : widget.recipe.ingredients,
+        instructions:
+            instructions.isNotEmpty ? instructions : widget.recipe.instructions,
+        categories: widget.recipe.categories,
+        tags: widget.recipe.tags,
+        videoUrl: widget.recipe.videoUrl,
+        videoPlatform: widget.recipe.videoPlatform,
+        recipePageUrl: widget.recipe.recipePageUrl,
+        recipeSiteName: widget.recipe.recipeSiteName,
+        thumbnailUrl: widget.recipe.thumbnailUrl,
+        authorName: widget.recipe.authorName,
+        extractionMethod: widget.recipe.extractionMethod,
+        extractionConfidence: widget.recipe.extractionConfidence,
+        createdAt: widget.recipe.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      await ref.read(localDbServiceProvider).updateRecipe(updated);
       if (mounted) {
         Navigator.pop(context, true);
       }
@@ -484,8 +501,7 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
                   child: Text(
                     '${index + 1}',
                     style: TextStyle(
-                      color:
-                          Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),

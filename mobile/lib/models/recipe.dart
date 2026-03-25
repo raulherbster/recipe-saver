@@ -1,5 +1,39 @@
 /// Recipe and related data models.
 
+/// Categories grouped by type (dietary, course, cuisine, etc.)
+class CategoryGroups {
+  final List<Category> dietary;
+  final List<Category> protein;
+  final List<Category> course;
+  final List<Category> cuisine;
+  final List<Category> method;
+  final List<Category> season;
+  final List<Category> difficulty;
+  final List<Category> time;
+
+  CategoryGroups({
+    this.dietary = const [],
+    this.protein = const [],
+    this.course = const [],
+    this.cuisine = const [],
+    this.method = const [],
+    this.season = const [],
+    this.difficulty = const [],
+    this.time = const [],
+  });
+
+  List<Category> get all => [
+        ...dietary,
+        ...protein,
+        ...course,
+        ...cuisine,
+        ...method,
+        ...season,
+        ...difficulty,
+        ...time,
+      ];
+}
+
 class Ingredient {
   final String id;
   final String name;

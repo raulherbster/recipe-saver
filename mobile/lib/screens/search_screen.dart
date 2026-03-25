@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/recipe.dart';
 import '../providers/providers.dart';
-import '../services/api_service.dart';
 import '../widgets/recipe_card.dart';
 import 'recipe_detail_screen.dart';
 
@@ -15,7 +13,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
-  bool _showFilters = false;
 
   @override
   void initState() {
@@ -47,18 +44,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Search Recipes'),
-        actions: [
-          IconButton(
-            icon: Icon(_showFilters ? Icons.filter_list_off : Icons.filter_list),
-            onPressed: () => setState(() => _showFilters = !_showFilters),
-            tooltip: 'Toggle filters',
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -85,14 +74,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
 
-          // Filters
-          if (_showFilters)
-            categoriesAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (categories) => _buildFilters(context, categories, searchState),
-            ),
-
           // Search button
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -111,74 +92,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           Expanded(child: _buildResults(searchState)),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilters(
-      BuildContext context, CategoryGroups categories, SearchState state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Selected filters
-          if (state.selectedCategories.isNotEmpty) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: state.selectedCategories.map((cat) {
-                return Chip(
-                  label: Text(cat),
-                  onDeleted: () =>
-                      ref.read(searchProvider.notifier).toggleCategory(cat),
-                  deleteIcon: const Icon(Icons.close, size: 18),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // Category filters
-          _buildCategorySection('Cuisine', categories.cuisine, state),
-          _buildCategorySection('Dietary', categories.dietary, state),
-          _buildCategorySection('Course', categories.course, state),
-          _buildCategorySection('Difficulty', categories.difficulty, state),
-
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategorySection(
-      String title, List<Category> categories, SearchState state) {
-    if (categories.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
-        SizedBox(
-          height: 36,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              final isSelected = state.selectedCategories.contains(cat.name);
-              return FilterChip(
-                label: Text(cat.name),
-                selected: isSelected,
-                onSelected: (_) =>
-                    ref.read(searchProvider.notifier).toggleCategory(cat.name),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
     );
   }
 
@@ -201,7 +114,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     if (state.results.isEmpty) {
-      if (state.query.isEmpty && state.selectedCategories.isEmpty) {
+      if (state.query.isEmpty) {
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
