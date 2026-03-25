@@ -27,10 +27,6 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
   bool _isSaving = false;
   bool _isDirty = false;
 
-  void _markDirty() {
-    if (!_isDirty) setState(() => _isDirty = true);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -59,15 +55,7 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
                 .toList()
             : [TextEditingController()];
 
-    for (final c in [
-      _titleController,
-      _descriptionController,
-      _servingsController,
-      _difficultyController,
-      _prepTimeMinsController,
-      _cookTimeMinsController,
-      _totalTimeMinsController,
-    ]) {
+    for (final c in _fixedControllers) {
       c.addListener(_markDirty);
     }
     for (final c in _ingredientControllers) {
@@ -78,28 +66,40 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
     }
   }
 
+  List<TextEditingController> get _fixedControllers => [
+        _titleController,
+        _descriptionController,
+        _servingsController,
+        _difficultyController,
+        _prepTimeMinsController,
+        _cookTimeMinsController,
+        _totalTimeMinsController,
+      ];
+
+  void _markDirty() {
+    if (!_isDirty) setState(() => _isDirty = true);
+  }
+
   @override
   void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _servingsController.dispose();
-    _difficultyController.dispose();
-    _prepTimeMinsController.dispose();
-    _cookTimeMinsController.dispose();
-    _totalTimeMinsController.dispose();
+    for (final c in _fixedControllers) {
+      c.removeListener(_markDirty);
+      c.dispose();
+    }
     for (final c in _ingredientControllers) {
+      c.removeListener(_markDirty);
       c.dispose();
     }
     for (final c in _instructionControllers) {
+      c.removeListener(_markDirty);
       c.dispose();
     }
     super.dispose();
   }
 
   void _addIngredient() {
+    final c = TextEditingController()..addListener(_markDirty);
     setState(() {
-      final c = TextEditingController();
-      c.addListener(_markDirty);
       _ingredientControllers.add(c);
       _isDirty = true;
     });
@@ -107,25 +107,25 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
 
   void _removeIngredient(int index) {
     setState(() {
+      _ingredientControllers[index].removeListener(_markDirty);
       _ingredientControllers[index].dispose();
       _ingredientControllers.removeAt(index);
       _isDirty = true;
     });
   }
 
-  void _reorderIngredients(int oldIndex, int newIndex) {
+  void _reorderIngredient(int oldIndex, int newIndex) {
     setState(() {
       if (newIndex > oldIndex) newIndex--;
-      final item = _ingredientControllers.removeAt(oldIndex);
-      _ingredientControllers.insert(newIndex, item);
+      final c = _ingredientControllers.removeAt(oldIndex);
+      _ingredientControllers.insert(newIndex, c);
       _isDirty = true;
     });
   }
 
   void _addInstruction() {
+    final c = TextEditingController()..addListener(_markDirty);
     setState(() {
-      final c = TextEditingController();
-      c.addListener(_markDirty);
       _instructionControllers.add(c);
       _isDirty = true;
     });
@@ -133,19 +133,42 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
 
   void _removeInstruction(int index) {
     setState(() {
+      _instructionControllers[index].removeListener(_markDirty);
       _instructionControllers[index].dispose();
       _instructionControllers.removeAt(index);
       _isDirty = true;
     });
   }
 
-  void _reorderInstructions(int oldIndex, int newIndex) {
+  void _reorderInstruction(int oldIndex, int newIndex) {
     setState(() {
       if (newIndex > oldIndex) newIndex--;
-      final item = _instructionControllers.removeAt(oldIndex);
-      _instructionControllers.insert(newIndex, item);
+      final c = _instructionControllers.removeAt(oldIndex);
+      _instructionControllers.insert(newIndex, c);
       _isDirty = true;
     });
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('You have unsaved changes that will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return shouldDiscard ?? false;
   }
 
   Future<void> _save() async {
@@ -181,14 +204,18 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
       final updated = Recipe(
         id: widget.recipe.id,
         title: title.isNotEmpty ? title : widget.recipe.title,
-        description: description.isNotEmpty ? description : widget.recipe.description,
+        description:
+            description.isNotEmpty ? description : widget.recipe.description,
         servings: servings.isNotEmpty ? servings : widget.recipe.servings,
-        difficulty: difficulty.isNotEmpty ? difficulty : widget.recipe.difficulty,
+        difficulty:
+            difficulty.isNotEmpty ? difficulty : widget.recipe.difficulty,
         prepTimeMins: prepTime ?? widget.recipe.prepTimeMins,
         cookTimeMins: cookTime ?? widget.recipe.cookTimeMins,
         totalTimeMins: totalTime ?? widget.recipe.totalTimeMins,
-        ingredients: ingredients.isNotEmpty ? ingredients : widget.recipe.ingredients,
-        instructions: instructions.isNotEmpty ? instructions : widget.recipe.instructions,
+        ingredients:
+            ingredients.isNotEmpty ? ingredients : widget.recipe.ingredients,
+        instructions:
+            instructions.isNotEmpty ? instructions : widget.recipe.instructions,
         categories: widget.recipe.categories,
         tags: widget.recipe.tags,
         videoUrl: widget.recipe.videoUrl,
@@ -216,36 +243,17 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
     }
   }
 
-  Future<void> _onPopInvoked(bool didPop, dynamic result) async {
-    if (didPop) return;
-    final shouldDiscard = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text('Your changes will not be saved.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
-    );
-    if ((shouldDiscard ?? false) && mounted) {
-      Navigator.pop(context);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !_isDirty,
-      onPopInvokedWithResult: _onPopInvoked,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final discard = await _confirmDiscard();
+        if (discard && mounted) {
+          Navigator.pop(context);
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Edit Recipe'),
@@ -287,7 +295,8 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
               const SizedBox(height: 16),
 
               // Description
-              Text('Description', style: Theme.of(context).textTheme.titleMedium),
+              Text('Description',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               TextField(
                 controller: _descriptionController,
@@ -315,7 +324,8 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
               const SizedBox(height: 16),
 
               // Difficulty
-              Text('Difficulty', style: Theme.of(context).textTheme.titleMedium),
+              Text('Difficulty',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               TextField(
                 controller: _difficultyController,
@@ -328,7 +338,8 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
               const SizedBox(height: 16),
 
               // Prep Time
-              Text('Prep Time (minutes)', style: Theme.of(context).textTheme.titleMedium),
+              Text('Prep Time (minutes)',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               TextField(
                 controller: _prepTimeMinsController,
@@ -342,7 +353,8 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
               const SizedBox(height: 16),
 
               // Cook Time
-              Text('Cook Time (minutes)', style: Theme.of(context).textTheme.titleMedium),
+              Text('Cook Time (minutes)',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               TextField(
                 controller: _cookTimeMinsController,
@@ -356,7 +368,8 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
               const SizedBox(height: 16),
 
               // Total Time
-              Text('Total Time (minutes)', style: Theme.of(context).textTheme.titleMedium),
+              Text('Total Time (minutes)',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               TextField(
                 controller: _totalTimeMinsController,
@@ -372,9 +385,11 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
               // Ingredients
               Row(
                 children: [
-                  Icon(Icons.list, color: Theme.of(context).colorScheme.primary),
+                  Icon(Icons.list,
+                      color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
-                  Text('Ingredients', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Ingredients',
+                      style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
               const SizedBox(height: 8),
@@ -382,37 +397,10 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 buildDefaultDragHandles: false,
-                onReorder: _reorderIngredients,
+                onReorder: _reorderIngredient,
                 children: [
                   for (int i = 0; i < _ingredientControllers.length; i++)
-                    Padding(
-                      key: ObjectKey(_ingredientControllers[i]),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          ReorderableDragStartListener(
-                            index: i,
-                            child: const Icon(Icons.drag_handle),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: TextField(
-                              controller: _ingredientControllers[i],
-                              decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.check_circle_outline),
-                                hintText: 'Ingredient ${i + 1}',
-                              ),
-                              textInputAction: TextInputAction.next,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _removeIngredient(i),
-                            tooltip: 'Remove ingredient',
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildIngredientRow(i, _ingredientControllers[i]),
                 ],
               ),
               TextButton.icon(
@@ -428,7 +416,8 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
                   Icon(Icons.format_list_numbered,
                       color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
-                  Text('Instructions', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Instructions',
+                      style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
               const SizedBox(height: 8),
@@ -436,57 +425,10 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 buildDefaultDragHandles: false,
-                onReorder: _reorderInstructions,
+                onReorder: _reorderInstruction,
                 children: [
                   for (int i = 0; i < _instructionControllers.length; i++)
-                    Padding(
-                      key: ObjectKey(_instructionControllers[i]),
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ReorderableDragStartListener(
-                            index: i,
-                            child: const Padding(
-                              padding: EdgeInsets.only(top: 12),
-                              child: Icon(Icons.drag_handle),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: TextField(
-                              controller: _instructionControllers[i],
-                              decoration: InputDecoration(
-                                prefixIcon: CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.primaryContainer,
-                                  child: Text(
-                                    '${i + 1}',
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onPrimaryContainer,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                hintText: 'Step ${i + 1}',
-                              ),
-                              maxLines: 3,
-                              minLines: 1,
-                              textInputAction: TextInputAction.next,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _removeInstruction(i),
-                            tooltip: 'Remove step',
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildInstructionRow(i, _instructionControllers[i]),
                 ],
               ),
               TextButton.icon(
@@ -498,6 +440,86 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildIngredientRow(int index, TextEditingController controller) {
+    return Padding(
+      key: ObjectKey(controller),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Icon(Icons.drag_handle, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Ingredient ${index + 1}',
+              ),
+              textInputAction: TextInputAction.next,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () => _removeIngredient(index),
+            tooltip: 'Remove ingredient',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionRow(int index, TextEditingController controller) {
+    return Padding(
+      key: ObjectKey(controller),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ReorderableDragStartListener(
+            index: index,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              child: Icon(Icons.drag_handle, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                prefixIcon: CircleAvatar(
+                  radius: 14,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                hintText: 'Step ${index + 1}',
+              ),
+              maxLines: 3,
+              minLines: 1,
+              textInputAction: TextInputAction.next,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () => _removeInstruction(index),
+            tooltip: 'Remove step',
+          ),
+        ],
       ),
     );
   }

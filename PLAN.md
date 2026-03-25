@@ -1,6 +1,6 @@
 # Recipe Saver - Implementation Plan
 
-> Last updated: 2026-02-01
+> Last updated: 2026-03-23
 
 ## Project Overview
 
@@ -24,12 +24,15 @@ A recipe-saving app where users paste YouTube/Instagram links and the app automa
 - [x] README documentation
 - [x] Backend tests (unit + integration)
 
+### Completed (continued)
+- [x] Flutter Android app structure
+- [x] Mobile screens (Home, Add Recipe, Detail, Search, Edit)
+- [x] Share intent support (share from YouTube/Instagram directly to app)
+- [x] Local SQLite caching in mobile app
+- [x] Offline support
+
 ### Pending
-- [ ] Flutter Android app structure
-- [ ] Mobile screens (Home, Add Recipe, Detail, Search)
-- [ ] Share intent support (share from YouTube/Instagram directly to app)
-- [ ] Local SQLite caching in mobile app
-- [ ] Offline support
+- [ ] Digital asset links (assetlinks.json on server) for deep link auto-verification
 
 ---
 
