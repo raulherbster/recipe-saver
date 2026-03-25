@@ -1,50 +1,37 @@
 # Recipe Saver
 
-Save recipes from YouTube videos and Instagram posts with smart extraction. Paste a link, and the app automatically finds the recipe page, extracts ingredients and instructions, and saves everything in one place.
+Save recipes from YouTube videos, Instagram posts, and recipe websites. Paste a link and the app automatically extracts ingredients and instructions — no account or internet connection required after the initial fetch.
 
 ## Features
 
-- **Smart URL Extraction**: Paste a YouTube video URL and the app scans the description for recipe website links (NYT Cooking, Serious Eats, etc.)
+- **Smart URL Extraction**: Paste a YouTube video URL and the app scans the description for recipe website links
 - **Schema.org Parsing**: Automatically parses structured recipe data from 40+ recipe websites
-- **LLM Fallback**: When no recipe link is found, uses AI to extract recipes from video transcripts
-- **Category Taxonomy**: Recipes are tagged with dietary info, cuisine, course, cooking method, and more
-- **Search**: Find recipes by ingredient, category, tag, or free text
+- **Direct Recipe URLs**: Paste a recipe site URL directly to extract without going through YouTube
+- **Offline-First**: All recipes stored locally on-device via SQLite — no backend required
+- **Google Drive Backup**: Back up and restore your recipe collection via Google Drive
+- **Search**: Find recipes by title or ingredient
+- **Edit & Reorder**: Edit any recipe, drag to reorder ingredients and steps
 
 ## How It Works
 
 ```
-User pastes YouTube URL
+User pastes URL (YouTube, recipe site, or Instagram)
          │
          ▼
 ┌─────────────────────────────────┐
-│ 1. Fetch video metadata (yt-dlp)│
-│    - title, description         │
-│    - pinned comment             │
-└────────────┬────────────────────┘
-             │
-             ▼
+│ On-device ExtractionService     │
+│  - YouTube: scan description    │
+│    for recipe site links        │
+│  - Recipe site: fetch & parse   │
+│    schema.org/Recipe JSON-LD    │
+│  - Instagram: parse og:desc     │
+└────────────────┬────────────────┘
+                 │
+                 ▼
 ┌─────────────────────────────────┐
-│ 2. Scan for recipe URLs         │
-│    - Known sites (NYT, etc.)    │
-│    - /recipe/ path patterns     │
-└────────────┬────────────────────┘
-             │
-    ┌────────┴────────┐
-    │                 │
- Found URL?       No URL
-    │                 │
-    ▼                 ▼
-┌──────────────┐ ┌──────────────┐
-│ 3a. Fetch &  │ │ 3b. Fetch    │
-│ parse schema │ │ transcript,  │
-│ .org/Recipe  │ │ use LLM      │
-└──────┬───────┘ └──────┬───────┘
-       │                │
-       └────────┬───────┘
-                │
-                ▼
-┌─────────────────────────────────┐
-│ 4. Normalize, categorize, save  │
+│ LocalDbService (SQLite)         │
+│  - Insert / update / delete     │
+│  - Search by title/ingredient   │
 └─────────────────────────────────┘
 ```
 
@@ -52,123 +39,62 @@ User pastes YouTube URL
 
 ```
 recipe-saver/
-├── backend/                 # Python FastAPI backend
-│   ├── app/
-│   │   ├── api/            # REST endpoints
-│   │   ├── extraction/     # YouTube, schema.org, LLM extractors
-│   │   ├── models/         # SQLAlchemy database models
-│   │   └── services/       # Business logic
-│   ├── tests/              # Backend tests
-│   └── pyproject.toml      # Python dependencies
-│
-└── mobile/                  # Flutter Android app (coming soon)
+└── mobile/                  # Flutter Android/iOS app
+    ├── lib/
+    │   ├── constants/       # Category taxonomy
+    │   ├── models/          # Recipe, Ingredient, etc.
+    │   ├── providers/       # Riverpod state management
+    │   ├── screens/         # UI screens
+    │   └── services/        # ExtractionService, LocalDbService, BackupService
+    └── test/                # Unit and widget tests
 ```
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Backend | Python 3.11+, FastAPI, SQLAlchemy |
-| Database | SQLite (dev), PostgreSQL (prod) |
-| YouTube | yt-dlp, youtube-transcript-api |
-| Recipe Parsing | BeautifulSoup, schema.org/Recipe |
-| LLM | OpenAI API (gpt-4o-mini) |
-| Mobile | Flutter (Android) |
+| Mobile | Flutter (Android & iOS) |
+| Local Storage | SQLite (sqflite) |
+| State Management | Riverpod |
+| Recipe Parsing | schema.org/Recipe JSON-LD (html package) |
+| YouTube | youtube_explode_dart |
+| Backup | Google Drive (googleapis + google_sign_in) |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.11+
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) installed and in PATH
-- OpenAI API key (for LLM extraction fallback)
+- Flutter SDK 3.x
+- Android Studio or Xcode
 
-### Backend Setup
+### Run the app
 
 ```bash
-cd backend
-
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
-
-# Install dependencies
-pip3 install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
-
-# Run the server
-uvicorn app.main:app --reload
+cd mobile
+flutter pub get
+flutter run
 ```
 
-The API will be available at http://localhost:8000
+### Run tests
 
-### API Documentation
-
-Once running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## API Endpoints
-
-### Extract Recipe
-```http
-POST /api/extract
-Content-Type: application/json
-
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
+```bash
+cd mobile
+flutter test
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "method": "schema_org",
-  "confidence": 0.95,
-  "message": "Recipe extracted from seriouseats.com",
-  "recipe": {
-    "id": "uuid",
-    "title": "Classic Beef Stew",
-    "ingredients": [...],
-    "instructions": [...],
-    "categories": [...]
-  }
-}
-```
+## Supported Recipe Sites
 
-### List Recipes
-```http
-GET /api/recipes?page=1&page_size=20
-```
+The schema.org parser supports 40+ recipe websites including:
 
-### Search Recipes
-```http
-GET /api/recipes/search?q=pasta&categories=italian,easy&max_time=30
-```
-
-### Get Recipe Details
-```http
-GET /api/recipes/{recipe_id}
-```
-
-### Update Recipe
-```http
-PATCH /api/recipes/{recipe_id}
-Content-Type: application/json
-
-{
-  "title": "Updated Title",
-  "ingredients": [...]
-}
-```
+- NYT Cooking, Serious Eats, Bon Appétit, Epicurious
+- AllRecipes, Food Network, Delish, Taste of Home
+- Budget Bytes, Minimalist Baker, Half Baked Harvest
+- BBC Good Food, Simply Recipes, Sally's Baking Addiction
+- And many more...
 
 ## Category Taxonomy
 
-Recipes are automatically categorized into:
+Recipes are tagged with:
 
 | Type | Values |
 |------|--------|
@@ -181,67 +107,21 @@ Recipes are automatically categorized into:
 | Difficulty | easy, medium, hard |
 | Time | under-15m, 15-30m, 30-60m, over-60m |
 
-## Supported Recipe Sites
-
-The schema.org parser supports 40+ recipe websites including:
-
-- NYT Cooking, Serious Eats, Bon Appétit, Epicurious
-- AllRecipes, Food Network, Delish, Taste of Home
-- Budget Bytes, Minimalist Baker, Half Baked Harvest
-- BBC Good Food, Simply Recipes, Sally's Baking Addiction
-- And many more...
-
-## Running Tests
-
-```bash
-cd backend
-
-# Install dependencies (if not already installed)
-pip3 install -r requirements.txt
-
-# Run all tests
-pytest
-
-# Run with verbose output
-pytest -v
-
-# Run a specific test file
-pytest tests/test_youtube.py
-
-# Run a specific test class or function
-pytest tests/test_recipe_sites.py::TestParseSchemaRecipe
-pytest tests/test_api.py::test_search_recipes
-
-# Run with coverage report
-pytest --cov=app --cov-report=term-missing
-```
-
-### Test Structure
-
-| File | Description |
-|------|-------------|
-| `test_youtube.py` | YouTube URL parsing, video ID extraction |
-| `test_recipe_sites.py` | Schema.org parsing, ingredient parsing, URL detection |
-| `test_llm_extractor.py` | LLM response parsing, confidence calculation |
-| `test_api.py` | API integration tests (CRUD, search, pagination) |
-
 ## Roadmap
 
-- [x] MVP Backend with extraction pipeline
-- [ ] Flutter Android app
-- [ ] Share intent support (share from YouTube/Instagram directly)
+- [x] On-device recipe extraction (YouTube, recipe sites, Instagram)
+- [x] Local SQLite storage — fully offline
+- [x] Share intent support (share from YouTube/Instagram directly)
+- [x] Google Drive backup & restore
 - [ ] Ingredient synonym search (chickpea = garbanzo)
 - [ ] "What should I cook?" natural language recommendations
-- [ ] iOS app
-- [ ] Browser extension for Instagram
+- [ ] iOS App Store release
 
-## Privacy & Legal Notes
+## Privacy
 
-- **YouTube**: Uses yt-dlp for metadata and youtube-transcript-api for captions (public data)
-- **Recipe Sites**: Respects robots.txt; uses proper User-Agent; caches aggressively
-- **Instagram**: Requires manual caption input due to API restrictions
-- **Data Storage**: All recipes stored locally; no data shared with third parties
-- **OpenAI**: Transcript text sent to OpenAI for LLM extraction (when schema.org unavailable)
+- All recipes stored locally on your device
+- No data sent to any server except during extraction (direct fetch from recipe sites / YouTube) and optional Google Drive backup
+- No account required
 
 ## License
 
