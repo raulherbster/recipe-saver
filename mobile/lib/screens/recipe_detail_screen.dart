@@ -42,8 +42,7 @@ class RecipeDetailScreen extends ConsumerWidget {
 
     if (confirmed == true) {
       try {
-        await ref.read(apiServiceProvider).deleteRecipe(recipeId);
-        ref.read(recipesProvider.notifier).removeRecipe(recipeId);
+        await ref.read(recipesProvider.notifier).removeRecipe(recipeId);
         if (context.mounted) {
           Navigator.pop(context);
         }

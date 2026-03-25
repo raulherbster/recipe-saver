@@ -41,7 +41,6 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
   void _startExtraction() {
     final url = _urlController.text.trim();
     if (url.isEmpty) return;
-
     ref.read(extractionProvider.notifier).extractRecipe(url: url);
   }
 
@@ -72,26 +71,22 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // URL Input
             _buildUrlInput(),
             const SizedBox(height: 16),
 
-            // Extract button
-            if (!extractionState.isExtracting && extractionState.response == null)
+            if (!extractionState.isExtracting && extractionState.result == null)
               FilledButton.icon(
                 onPressed: _startExtraction,
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text('Extract Recipe'),
               ),
 
-            // Loading state
             if (extractionState.isExtracting) _buildLoading(),
 
-            // Result
-            if (extractionState.response != null) _buildResult(extractionState),
+            if (extractionState.result != null)
+              _buildResult(extractionState),
 
-            // Error
-            if (extractionState.error != null && extractionState.response == null)
+            if (extractionState.error != null && extractionState.result == null)
               _buildError(extractionState.error!),
           ],
         ),
@@ -160,13 +155,13 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
   }
 
   Widget _buildResult(ExtractionState state) {
-    final response = state.response!;
+    final result = state.result!;
 
-    if (!response.success) {
-      return _buildError(response.error ?? response.message);
+    if (!result.success) {
+      return _buildError(result.error ?? 'No recipe found');
     }
 
-    final recipe = response.recipe!;
+    final recipe = result.recipe!;
 
     return Card(
       child: Padding(
@@ -174,15 +169,14 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Success header
             Row(
               children: [
                 Icon(Icons.check_circle,
-                     color: Theme.of(context).colorScheme.primary),
+                    color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    response.message,
+                    'Recipe extracted via ${result.method}',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -192,7 +186,6 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
             ),
             const Divider(height: 24),
 
-            // Recipe preview
             Text(
               recipe.title,
               style: Theme.of(context).textTheme.titleLarge,
@@ -208,13 +201,13 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
             ],
             const SizedBox(height: 12),
 
-            // Quick stats
             Wrap(
               spacing: 16,
               runSpacing: 8,
               children: [
                 if (recipe.ingredients.isNotEmpty)
-                  _buildStat(Icons.list, '${recipe.ingredients.length} ingredients'),
+                  _buildStat(Icons.list,
+                      '${recipe.ingredients.length} ingredients'),
                 if (recipe.formattedTime != null)
                   _buildStat(Icons.schedule, recipe.formattedTime!),
                 if (recipe.difficulty != null)
@@ -225,21 +218,6 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Confidence indicator
-            if (response.confidence < 1.0) ...[
-              LinearProgressIndicator(
-                value: response.confidence,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Extraction confidence: ${(response.confidence * 100).toInt()}%',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Actions
             Row(
               children: [
                 Expanded(
@@ -252,9 +230,7 @@ class _AddRecipeScreenState extends ConsumerState<AddRecipeScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context, true); // Return success
-                    },
+                    onPressed: () => Navigator.pop(context, true),
                     icon: const Icon(Icons.check),
                     label: const Text('Done'),
                   ),

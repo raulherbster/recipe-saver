@@ -138,9 +138,45 @@ class _EditRecipeScreenState extends ConsumerState<EditRecipeScreen> {
     if (instructions.isNotEmpty) payload['instructions'] = instructions;
 
     try {
-      await ref
-          .read(apiServiceProvider)
-          .updateRecipe(widget.recipe.id, payload);
+      final updated = Recipe(
+        id: widget.recipe.id,
+        title: payload['title'] ?? widget.recipe.title,
+        description: payload['description'] ?? widget.recipe.description,
+        servings: payload['servings'] ?? widget.recipe.servings,
+        difficulty: payload['difficulty'] ?? widget.recipe.difficulty,
+        prepTimeMins: payload['prep_time_mins'] ?? widget.recipe.prepTimeMins,
+        cookTimeMins: payload['cook_time_mins'] ?? widget.recipe.cookTimeMins,
+        totalTimeMins: payload['total_time_mins'] ?? widget.recipe.totalTimeMins,
+        ingredients: (payload['ingredients'] as List<dynamic>?)
+                ?.asMap()
+                .entries
+                .map((e) => Ingredient(
+                      id: e.key < widget.recipe.ingredients.length
+                          ? widget.recipe.ingredients[e.key].id
+                          : 'ing-${widget.recipe.id}-${e.key}',
+                      name: (e.value as Map)['name'] ?? '',
+                      rawText: (e.value as Map)['raw_text'],
+                      sortOrder: e.key,
+                    ))
+                .toList() ??
+            widget.recipe.ingredients,
+        instructions: payload['instructions'] != null
+            ? List<String>.from(payload['instructions'])
+            : widget.recipe.instructions,
+        categories: widget.recipe.categories,
+        tags: widget.recipe.tags,
+        videoUrl: widget.recipe.videoUrl,
+        videoPlatform: widget.recipe.videoPlatform,
+        recipePageUrl: widget.recipe.recipePageUrl,
+        recipeSiteName: widget.recipe.recipeSiteName,
+        thumbnailUrl: widget.recipe.thumbnailUrl,
+        authorName: widget.recipe.authorName,
+        extractionMethod: widget.recipe.extractionMethod,
+        extractionConfidence: widget.recipe.extractionConfidence,
+        createdAt: widget.recipe.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      await ref.read(localDbServiceProvider).updateRecipe(updated);
       if (mounted) {
         Navigator.pop(context, true);
       }

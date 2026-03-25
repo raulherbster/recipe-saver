@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../widgets/recipe_card.dart';
 import 'add_recipe_screen.dart';
+import 'backup_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'search_screen.dart';
 
@@ -95,9 +96,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _deleteRecipe(String recipeId) async {
     try {
-      // Delete from the API first, then let the notifier clean up the cache
-      // and in-memory list.
-      await ref.read(apiServiceProvider).deleteRecipe(recipeId);
       await ref.read(recipesProvider.notifier).removeRecipe(recipeId);
     } catch (e) {
       debugPrint('Failed to delete recipe $recipeId: $e');
@@ -124,6 +122,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: _openSearch,
             tooltip: 'Search recipes',
           ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'backup') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BackupScreen()),
+                );
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'backup',
+                child: ListTile(
+                  leading: Icon(Icons.backup),
+                  title: Text('Backup & Restore'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -139,33 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBody(RecipesState state) {
-    return Column(
-      children: [
-        if (state.isOffline)
-          Container(
-            width: double.infinity,
-            color: Theme.of(context).colorScheme.errorContainer,
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.wifi_off,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Offline — showing cached recipes',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onErrorContainer,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        Expanded(child: _buildContent(state)),
-      ],
-    );
+    return _buildContent(state);
   }
 
   Widget _buildContent(RecipesState state) {
