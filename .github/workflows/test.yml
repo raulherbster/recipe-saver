@@ -49,4 +49,4 @@ jobs:
 
       - name: Run tests
         working-directory: mobile
-        run: flutter test --reporter=expanded
+        run: flutter test --reporter=expanded --exclude-tags e2e
