@@ -147,6 +147,39 @@ class ExtractionService {
         return ExtractionResult.ok(fromDesc, 'description_parse');
       }
 
+      // 4. Scan first-page comments for recipe URLs posted by the channel author
+      try {
+        final comments = await yt.videos.comments.getComments(video);
+        if (comments != null) {
+          final authorId = video.channelId.value;
+          for (final comment in comments) {
+            if (comment.channelId.value != authorId) continue;
+            final commentUrls = _extractUrls(comment.text);
+            for (final recipeUrl in commentUrls) {
+              if (_isYouTube(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
+              if (_isInstagram(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
+              final html = await _fetchHtml(recipeUrl);
+              if (html != null) {
+                final recipe = _parseJsonLd(html, sourceUrl: recipeUrl);
+                if (recipe != null) {
+                  return ExtractionResult.ok(
+                    recipe.copyWith(
+                      videoUrl: url,
+                      videoPlatform: 'youtube',
+                      authorName: channel,
+                      thumbnailUrl: recipe.thumbnailUrl ?? thumbnail,
+                    ),
+                    'schema_org',
+                  );
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Comment API is unreliable — ignore failures silently.
+      }
+
       return ExtractionResult.fail(
         'No recipe found in the video description or linked pages. '
         'Enter the recipe manually.',
@@ -295,11 +328,20 @@ class ExtractionService {
     String? thumbnailUrl,
   }) {
     final ingredientsMatch = RegExp(
-      r'(?:^|\n)\s*[*•▪]?\s*ingr[eé]dients?\s*[:\-]?\s*\n([\s\S]+?)(?=\n\s*(?:instructions?|directions?|method|steps?|how to|preparation)\s*[:\-]?\s*\n|$)',
+      r'(?:^|\n)\s*[*•▪]?\s*ingr[eé]dients?\b[^\n]*\n([\s\S]+?)(?=\n\s*(?:instructions?|directions?|method|steps?|how to|preparation)\s*[:\-]?\s*\n|\n\s*(?:notes?|tips?|storage|nutrition|video breakdown|follow|subscribe|find|about)\b|$)',
       caseSensitive: false,
     ).firstMatch(text);
 
-    if (ingredientsMatch == null) return null;
+    if (ingredientsMatch == null) {
+      return _parseQuantityLines(
+        text,
+        title: title,
+        sourceUrl: sourceUrl,
+        videoPlatform: videoPlatform,
+        authorName: authorName,
+        thumbnailUrl: thumbnailUrl,
+      );
+    }
 
     final instructionsMatch = RegExp(
       r'(?:^|\n)\s*(?:instructions?|directions?|method|steps?|how to|preparation)\s*[:\-]?\s*\n([\s\S]+?)(?=\n\s*(?:notes?|tips?|storage|nutrition)\s*[:\-]?\s*\n|$)',
@@ -313,7 +355,17 @@ class ExtractionService {
         .where((l) => l.isNotEmpty)
         .toList();
 
-    if (ingredientLines.isEmpty) return null;
+    if (ingredientLines.isEmpty) {
+      // Fallback: no explicit header — look for a run of quantity-prefixed lines.
+      return _parseQuantityLines(
+        text,
+        title: title,
+        sourceUrl: sourceUrl,
+        videoPlatform: videoPlatform,
+        authorName: authorName,
+        thumbnailUrl: thumbnailUrl,
+      );
+    }
 
     final instructionLines = instructionsMatch
             ?.group(1)
@@ -345,6 +397,77 @@ class ExtractionService {
       thumbnailUrl: thumbnailUrl,
       extractionMethod: 'description_parse',
       extractionConfidence: 0.5,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  // ── Quantity-line fallback ───────────────────────────────────────────────
+
+  /// Detects a recipe embedded without explicit headers by finding a run of
+  /// 4+ consecutive lines that start with a number or fraction (e.g. "2 cups
+  /// flour", "1/2 tsp salt").  Used for YouTube descriptions like Claire
+  /// Saffitz's that list ingredients right after the recipe title.
+  Recipe? _parseQuantityLines(
+    String text, {
+    required String title,
+    required String sourceUrl,
+    String? videoPlatform,
+    String? authorName,
+    String? thumbnailUrl,
+  }) {
+    final quantityPrefix = RegExp(
+      r'^[\d½¼¾⅓⅔][\d./ ]*\s*(?:oz|g|cup|cups|tbsp|tsp|lb|lbs|pound|pounds|stick|sticks|tablespoon|tablespoons|teaspoon|teaspoons|ounce|ounces|ml|liter|liters|clove|cloves|small|large|medium|head|bunch|sprig|sprigs|pinch|dash|can|cans)?\s+\S',
+      caseSensitive: false,
+    );
+    final lines = text.split('\n');
+
+    int? runStart;
+    int runLen = 0;
+    int? bestStart;
+    int bestLen = 0;
+
+    for (int i = 0; i < lines.length; i++) {
+      if (quantityPrefix.hasMatch(lines[i].trim())) {
+        runStart ??= i;
+        runLen++;
+        if (runLen > bestLen) {
+          bestLen = runLen;
+          bestStart = runStart;
+        }
+      } else {
+        runStart = null;
+        runLen = 0;
+      }
+    }
+
+    if (bestLen < 4 || bestStart == null) return null;
+
+    final ingredientLines =
+        lines.sublist(bestStart, bestStart + bestLen).where((l) => l.trim().isNotEmpty).toList();
+
+    final now = DateTime.now();
+    return Recipe(
+      id: _uuid.v4(),
+      title: title,
+      ingredients: ingredientLines
+          .asMap()
+          .entries
+          .map((e) => Ingredient(
+                id: _uuid.v4(),
+                name: e.value.trim(),
+                rawText: e.value.trim(),
+                sortOrder: e.key,
+              ))
+          .toList(),
+      instructions: null,
+      videoUrl: videoPlatform != null ? sourceUrl : null,
+      videoPlatform: videoPlatform,
+      recipePageUrl: videoPlatform == null ? sourceUrl : null,
+      authorName: authorName,
+      thumbnailUrl: thumbnailUrl,
+      extractionMethod: 'description_parse',
+      extractionConfidence: 0.4,
       createdAt: now,
       updatedAt: now,
     );
