@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-pr-check.sh"
+            "command": ".claude/hooks/pre-pr-check.sh",
+            "timeout": 120
           }
         ]
       }
