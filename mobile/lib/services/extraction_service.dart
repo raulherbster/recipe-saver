@@ -198,39 +198,69 @@ class ExtractionService {
 
   Future<ExtractionResult> _extractInstagram(String url) async {
     try {
-      final html = await _fetchHtml(url);
-      if (html == null) {
-        return ExtractionResult.fail('Could not fetch Instagram page', 'instagram');
-      }
+      // 1. Use the oEmbed API — public, no auth, returns the full caption as
+      //    `title` even when the HTML page is JS-only.
+      final caption = await _fetchInstagramCaption(url);
 
-      // 1. Try JSON-LD (some food accounts embed it)
-      final recipe = _parseJsonLd(html, sourceUrl: url);
-      if (recipe != null) {
-        return ExtractionResult.ok(
-          recipe.copyWith(videoPlatform: 'instagram'),
-          'schema_org',
-        );
-      }
+      if (caption != null && caption.isNotEmpty) {
+        // 1a. Follow any URLs in the caption to recipe sites.
+        final captionUrls = _extractUrls(caption);
+        for (final recipeUrl in captionUrls) {
+          if (_isInstagram(Uri.tryParse(recipeUrl)?.host ?? '')) continue;
+          final recipeHtml = await _fetchHtml(recipeUrl);
+          if (recipeHtml != null) {
+            final linkedRecipe = _parseJsonLd(recipeHtml, sourceUrl: recipeUrl);
+            if (linkedRecipe != null) {
+              return ExtractionResult.ok(
+                linkedRecipe.copyWith(videoPlatform: 'instagram'),
+                'schema_org',
+              );
+            }
+          }
+        }
 
-      // 2. Try og:description (contains the caption on public posts)
-      final doc = html_parser.parse(html);
-      final ogDesc = doc
-          .querySelector('meta[property="og:description"]')
-          ?.attributes['content'];
-      final ogImage = doc
-          .querySelector('meta[property="og:image"]')
-          ?.attributes['content'];
-
-      if (ogDesc != null && ogDesc.isNotEmpty) {
+        // 1b. Try to parse the caption itself as a recipe.
         final fromCaption = _parseDescriptionAsRecipe(
-          ogDesc,
-          title: doc.querySelector('meta[property="og:title"]')?.attributes['content'] ?? 'Instagram Recipe',
+          caption,
+          title: 'Instagram Recipe',
           sourceUrl: url,
           videoPlatform: 'instagram',
-          thumbnailUrl: ogImage,
         );
         if (fromCaption != null) {
           return ExtractionResult.ok(fromCaption, 'description_parse');
+        }
+      }
+
+      // 2. Fallback: fetch the HTML page and try JSON-LD + og:description.
+      final html = await _fetchHtml(url);
+      if (html != null) {
+        final recipe = _parseJsonLd(html, sourceUrl: url);
+        if (recipe != null) {
+          return ExtractionResult.ok(
+            recipe.copyWith(videoPlatform: 'instagram'),
+            'schema_org',
+          );
+        }
+
+        final doc = html_parser.parse(html);
+        final ogDesc = doc
+            .querySelector('meta[property="og:description"]')
+            ?.attributes['content'];
+        final ogImage = doc
+            .querySelector('meta[property="og:image"]')
+            ?.attributes['content'];
+
+        if (ogDesc != null && ogDesc.isNotEmpty) {
+          final fromOg = _parseDescriptionAsRecipe(
+            ogDesc,
+            title: doc.querySelector('meta[property="og:title"]')?.attributes['content'] ?? 'Instagram Recipe',
+            sourceUrl: url,
+            videoPlatform: 'instagram',
+            thumbnailUrl: ogImage,
+          );
+          if (fromOg != null) {
+            return ExtractionResult.ok(fromOg, 'description_parse');
+          }
         }
       }
 
@@ -240,6 +270,24 @@ class ExtractionService {
       );
     } catch (e) {
       return ExtractionResult.fail('$e', 'instagram');
+    }
+  }
+
+  /// Fetches the full caption of an Instagram post via the public oEmbed API.
+  /// Returns null on any failure.
+  Future<String?> _fetchInstagramCaption(String postUrl) async {
+    try {
+      final encoded = Uri.encodeComponent(postUrl);
+      final response = await _dio.get<String>(
+        'https://www.instagram.com/api/v1/oembed/?url=$encoded&maxwidth=320',
+        options: Options(responseType: ResponseType.plain),
+      );
+      if (response.data == null) return null;
+      final json = jsonDecode(response.data!) as Map<String, dynamic>;
+      final title = json['title'] as String?;
+      return (title != null && title.isNotEmpty) ? title : null;
+    } catch (_) {
+      return null;
     }
   }
 

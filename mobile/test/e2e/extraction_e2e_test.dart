@@ -119,17 +119,15 @@ void main() {
 
   // ── Instagram ─────────────────────────────────────────────────────────────
 
-  group('Instagram reel — recipe in author comment', () {
-    test('extracts recipe from reel caption or comment', () async {
+  group('Instagram reel — recipe link in caption', () {
+    // The caption contains https://justinesnacks.com/chicory-salad-with-citrus-dressing/
+    // We fetch it via the oEmbed API, follow the link, and parse JSON-LD.
+    test('follows recipe link from caption via oEmbed', () async {
       final result = await service.extract(
         'https://www.instagram.com/reel/DVbaAh7ETOp/',
       );
 
-      // Instagram may block scraping depending on login requirements.
-      if (!result.success) {
-        printOnFailure('Instagram extraction failed (may require login): ${result.error}');
-        return;
-      }
+      expect(result.success, isTrue, reason: result.error);
       final r = result.recipe!;
       expect(r.title, isNotEmpty);
       expect(r.ingredients, isNotEmpty);
