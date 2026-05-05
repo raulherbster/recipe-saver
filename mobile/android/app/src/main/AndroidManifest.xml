@@ -60,4 +60,16 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Required for url_launcher canLaunchUrl on Android 11+ -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
 </manifest>
