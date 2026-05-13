@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1043218346718",
+    "project_id": "recipesaver-86d24",
+    "storage_bucket": "recipesaver-86d24.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043218346718:android:42b313b09ab2a93665084f",
+        "android_client_info": {
+          "package_name": "com.example.recipe_saver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7rCOSl1_DXUukvhwHAyPzpj9SXw5g8-o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
