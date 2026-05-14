@@ -1,4 +1,4 @@
-package com.example.recipe_saver
+package com.acopis.recipehub
 
 import io.flutter.embedding.android.FlutterActivity
 

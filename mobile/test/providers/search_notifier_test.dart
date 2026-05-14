@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:recipe_saver/providers/providers.dart';
-import 'package:recipe_saver/services/local_db_service.dart';
-import 'package:recipe_saver/models/recipe.dart';
+import 'package:recipe_hub/providers/providers.dart';
+import 'package:recipe_hub/services/local_db_service.dart';
+import 'package:recipe_hub/models/recipe.dart';
 
 class MockLocalDbService extends Mock implements LocalDbService {}
 

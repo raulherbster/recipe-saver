@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "1043218346718",
-    "project_id": "recipesaver-86d24",
-    "storage_bucket": "recipesaver-86d24.firebasestorage.app"
+    "project_number": "843821893215",
+    "project_id": "recipehub-600f8",
+    "storage_bucket": "recipehub-600f8.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1043218346718:android:42b313b09ab2a93665084f",
+        "mobilesdk_app_id": "1:843821893215:android:db60e6b557676b9732bdea",
         "android_client_info": {
-          "package_name": "com.example.recipe_saver"
+          "package_name": "com.acopis.recipehub"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyA7rCOSl1_DXUukvhwHAyPzpj9SXw5g8-o"
+          "current_key": "AIzaSyDe9QwQx2_PLaEq1iBPGRqpBWB0Um54SRI"
         }
       ],
       "services": {

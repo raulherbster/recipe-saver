@@ -8,7 +8,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recipe_saver/services/extraction_service.dart';
+import 'package:recipe_hub/services/extraction_service.dart';
 
 void main() {
   final service = ExtractionService();

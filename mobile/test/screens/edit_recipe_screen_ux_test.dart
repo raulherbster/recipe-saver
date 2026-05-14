@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:recipe_saver/models/recipe.dart';
-import 'package:recipe_saver/providers/providers.dart';
-import 'package:recipe_saver/screens/edit_recipe_screen.dart';
-import 'package:recipe_saver/services/local_db_service.dart';
+import 'package:recipe_hub/models/recipe.dart';
+import 'package:recipe_hub/providers/providers.dart';
+import 'package:recipe_hub/screens/edit_recipe_screen.dart';
+import 'package:recipe_hub/services/local_db_service.dart';
 
 /// Captures the last Recipe passed to updateRecipe for assertion.
 class _CapturingLocalDbService extends LocalDbService {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recipe_saver/models/recipe.dart';
+import 'package:recipe_hub/models/recipe.dart';
 
 void main() {
   group('Ingredient', () {

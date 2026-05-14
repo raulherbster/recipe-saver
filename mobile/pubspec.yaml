@@ -1,4 +1,4 @@
-name: recipe_saver
+name: recipe_hub
 description: Save recipes from YouTube and Instagram with smart extraction.
 publish_to: 'none'
 version: 1.0.0+1

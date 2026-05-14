@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:recipe_saver/services/share_intent_service.dart';
+import 'package:recipe_hub/services/share_intent_service.dart';
 
 void main() {
   group('ShareIntentService — URL classification', () {

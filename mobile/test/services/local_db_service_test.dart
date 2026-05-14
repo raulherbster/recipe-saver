@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:recipe_saver/services/local_db_service.dart';
-import 'package:recipe_saver/models/recipe.dart';
+import 'package:recipe_hub/services/local_db_service.dart';
+import 'package:recipe_hub/models/recipe.dart';
 
 // Expose the private _onCreate via a helper so we can bootstrap the in-memory
 // database with the same schema that LocalDbService uses in production.
