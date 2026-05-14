@@ -40,7 +40,7 @@ class ExtractionService {
     receiveTimeout: const Duration(seconds: 20),
     headers: {
       'User-Agent':
-          'Mozilla/5.0 (compatible; RecipeSaverBot/1.0)',
+          'Mozilla/5.0 (compatible; RecipeHubBot/1.0)',
     },
   ));
 

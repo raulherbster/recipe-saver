@@ -8,7 +8,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     const ProviderScope(
-      child: RecipeSaverApp(),
+      child: RecipeHubApp(),
     ),
   );
 }
@@ -16,14 +16,14 @@ void main() {
 /// Global key for navigator to handle share intents
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-class RecipeSaverApp extends StatefulWidget {
-  const RecipeSaverApp({super.key});
+class RecipeHubApp extends StatefulWidget {
+  const RecipeHubApp({super.key});
 
   @override
-  State<RecipeSaverApp> createState() => _RecipeSaverAppState();
+  State<RecipeHubApp> createState() => _RecipeHubAppState();
 }
 
-class _RecipeSaverAppState extends State<RecipeSaverApp> {
+class _RecipeHubAppState extends State<RecipeHubApp> {
   final _shareIntentService = ShareIntentService();
   String? _pendingUrl;
 
@@ -83,7 +83,7 @@ class _RecipeSaverAppState extends State<RecipeSaverApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Recipe Saver',
+      title: 'RecipeHub',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

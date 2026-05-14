@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:recipe_saver/providers/providers.dart';
-import 'package:recipe_saver/screens/home_screen.dart';
-import 'package:recipe_saver/services/local_db_service.dart';
-import 'package:recipe_saver/models/recipe.dart';
+import 'package:recipe_hub/providers/providers.dart';
+import 'package:recipe_hub/screens/home_screen.dart';
+import 'package:recipe_hub/services/local_db_service.dart';
+import 'package:recipe_hub/models/recipe.dart';
 
 /// Stub local DB that never touches disk.
 class StubLocalDbService extends LocalDbService {
@@ -50,7 +50,7 @@ void main() {
   testWidgets('Home screen shows correct title', (WidgetTester tester) async {
     await tester.pumpWidget(_buildApp());
     await tester.pumpAndSettle();
-    expect(find.text('Recipe Saver'), findsOneWidget);
+    expect(find.text('RecipeHub'), findsOneWidget);
   });
 
   testWidgets('Home screen shows Add Recipe FAB', (WidgetTester tester) async {

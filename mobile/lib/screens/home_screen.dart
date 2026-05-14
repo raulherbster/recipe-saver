@@ -115,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recipe Saver'),
+        title: const Text('RecipeHub'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
